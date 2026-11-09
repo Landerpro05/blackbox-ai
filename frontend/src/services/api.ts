@@ -54,14 +54,19 @@ export async function request<T>(
           }
         }
       }
+      const safeDetail =
+        typeof detail === "string" && [403, 404, 409].includes(response.status)
+          ? detail
+          : null;
       const message =
-        response.status === 422
+        safeDetail ??
+        (response.status === 422
           ? "Revisa los campos del formulario."
           : response.status === 404
             ? "Proyecto no encontrado."
             : response.status === 503
               ? "El servicio no está disponible. Comprueba el backend y las migraciones."
-              : "No se pudo completar la operación. Inténtalo de nuevo.";
+              : "No se pudo completar la operación. Inténtalo de nuevo.");
       throw new ApiError(message, response.status, fields);
     }
     if (response.status === 204) return undefined as T;

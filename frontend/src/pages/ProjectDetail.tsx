@@ -15,6 +15,8 @@ import { projectsApi } from "../services/projects";
 import { formatDate } from "../services/format";
 import { ResourceError, ResourceLoading } from "../components/ResourceFeedback";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog";
+import { RunStartPanel } from "../components/RunStartPanel";
+import { RunHistory } from "../components/RunHistory";
 
 export function ProjectDetail() {
   const { id = "" } = useParams();
@@ -122,7 +124,7 @@ export function ProjectDetail() {
                     <ShieldCheck size={17} />
                     Límites iniciales
                   </h2>
-                  <p>Reservados para el futuro motor de testing</p>
+                  <p>Valores históricos del proyecto</p>
                 </div>
               </div>
               <dl className="project-data">
@@ -142,12 +144,14 @@ export function ProjectDetail() {
               <div className="form-safety">
                 <ShieldCheck size={18} />
                 <p>
-                  No se ha iniciado ningún análisis. Los permisos de destino y
-                  el motor se implementarán en la fase 3.
+                  Los límites de cada ejecución se eligen en el formulario de
+                  análisis. Estas referencias del proyecto se conservan.
                 </p>
               </div>
             </section>
           </div>
+          <RunStartPanel project={state.data} />
+          <RunHistory projectId={state.data.id} />
           {deleting && (
             <DeleteProjectDialog
               project={state.data}

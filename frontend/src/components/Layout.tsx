@@ -68,10 +68,10 @@ export function Layout() {
             <FolderKanban size={18} />
             Proyectos
           </NavLink>
-          <span className="nav-upcoming" aria-disabled="true">
+          <NavLink to="/runs">
             <Activity size={18} />
-            Análisis<small>Fase 3</small>
-          </span>
+            Análisis
+          </NavLink>
           <span className="nav-upcoming" aria-disabled="true">
             <FileBarChart2 size={18} />
             Informes<small>Fase 4</small>
@@ -100,7 +100,7 @@ export function Layout() {
           </a>
           <div className="sidebar-version">
             <span className="tiny-dot" />
-            v0.1.0<span>Fase 2 · Proyectos</span>
+            v0.1.0<span>Fase 3 · Motor de testing</span>
           </div>
         </div>
       </aside>
@@ -118,11 +118,13 @@ export function Layout() {
             <span>Workspace</span>
             <ChevronRight size={14} />
             <strong>
-              {pathname.startsWith("/projects")
-                ? "Proyectos"
-                : pathname === "/settings"
-                  ? "Configuración"
-                  : "Dashboard"}
+              {pathname.startsWith("/runs")
+                ? "Análisis"
+                : pathname.startsWith("/projects")
+                  ? "Proyectos"
+                  : pathname === "/settings"
+                    ? "Configuración"
+                    : "Dashboard"}
             </strong>
           </div>
           <div className="topbar-right">

@@ -52,7 +52,7 @@ export function Settings() {
               <ShieldCheck size={18} />
               Alcance actual
             </h2>
-            <p>Fase 2 · Gestión de proyectos</p>
+            <p>Fase 3 · Motor de testing controlado</p>
           </div>
         </div>
         <div className="settings-body">
@@ -63,8 +63,10 @@ export function Settings() {
           </p>
           <p>
             Registrar o editar un proyecto no provoca navegación a su URL. El
-            navegador automatizado y sus controles de red se implementarán
-            juntos en la fase 3. La integración de IA se abordará en la fase 5.
+            motor Playwright solo admite la demostración integrada, requiere
+            activación en el servidor y autorización por ejecución. La
+            navegación remota está deshabilitada. La integración de IA se
+            abordará en la fase 5.
           </p>
           <p>
             Este entorno local aún no dispone de autenticación. Usa los

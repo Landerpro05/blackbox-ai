@@ -271,9 +271,11 @@ export function Dashboard() {
                   </span>
                   <span>
                     <strong>Motor de testing</strong>
-                    <small>Disponible en la fase 3</small>
+                    <small>Playwright · Solo demostración controlada</small>
                   </span>
-                  <span className="status-pill neutral">Pendiente</span>
+                  <Link className="status-pill neutral" to="/projects">
+                    Ver proyectos
+                  </Link>
                 </div>
               </div>
               <div className="foundation-note">
@@ -321,7 +323,7 @@ export function Dashboard() {
                         <span className="table-project-icon">
                           <FolderKanban size={16} />
                         </span>
-                        {run.project_name}
+                        <Link to={`/runs/${run.id}`}>{run.project_name}</Link>
                       </td>
                       <td>
                         <span
@@ -342,7 +344,7 @@ export function Dashboard() {
               <EmptyState
                 icon={Layers3}
                 title="Aún no hay ejecuciones"
-                description="Tus análisis y sus resultados aparecerán aquí. El motor de testing se implementará en la fase 3."
+                description="Inicia una ejecución autorizada desde un proyecto de demostración para ver sus resultados aquí."
               />
             )}
           </section>

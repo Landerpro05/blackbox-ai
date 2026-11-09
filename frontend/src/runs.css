@@ -1,0 +1,340 @@
+.demo-project-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 23px;
+  padding: 20px;
+  background: linear-gradient(115deg, #132840, #111c2e);
+}
+.demo-project-panel > svg {
+  color: #84b4ff;
+}
+.demo-project-panel > div {
+  flex: 1;
+}
+.demo-project-panel p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #95accb;
+  margin-top: 7px;
+}
+.demo-project-panel button {
+  flex-shrink: 0;
+}
+.run-start-panel {
+  margin: 24px 0;
+}
+.run-start-body {
+  padding: 22px;
+}
+.run-mode-explanation {
+  font-size: 12px;
+  color: #9eb6d6;
+  line-height: 1.9;
+  margin-bottom: 20px;
+  overflow-wrap: anywhere;
+}
+.run-limits-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  border: 0;
+  padding: 0;
+  margin: 0 0 20px;
+}
+.run-limits-fields .form-field {
+  margin: 0;
+}
+.run-limits-fields:disabled {
+  opacity: 0.55;
+}
+.run-consent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 12px;
+  color: #b5c9e7;
+  line-height: 1.8;
+  margin: 15px 0 22px;
+}
+.run-consent input {
+  margin-top: 5px;
+  accent-color: #4b91ff;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.run-history {
+  margin-bottom: 30px;
+}
+.run-pagination {
+  padding: 0 20px;
+}
+.run-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #9bc2ff;
+  font-size: 11px;
+}
+.run-link:hover {
+  color: #c2daff;
+}
+.run-progress {
+  padding: 20px 22px;
+  margin-bottom: 20px;
+}
+.run-progress > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #8da4c4;
+  font-size: 10px;
+}
+.run-progress .status-pill {
+  gap: 6px;
+}
+.run-progress label {
+  display: block;
+  margin: 18px 0 10px;
+  font-size: 11px;
+  color: #a9c1e3;
+}
+.run-progress progress {
+  width: 100%;
+  height: 7px;
+  border-radius: 10px;
+  border: 0;
+  overflow: hidden;
+  background: #223450;
+  accent-color: #609cff;
+}
+.run-progress progress::-webkit-progress-bar {
+  background: #223450;
+}
+.run-progress progress::-webkit-progress-value {
+  background: #609cff;
+}
+.run-metrics .metric-card > svg {
+  float: right;
+  color: #7baaff;
+}
+.run-metrics .metric-card > span {
+  display: block;
+  font-size: 11px;
+  line-height: 1.6;
+  padding-right: 20px;
+  color: #9cafca;
+}
+.run-metrics small {
+  font-size: 15px;
+  font-weight: 400;
+  color: #8fadd6;
+}
+.run-issues,
+.scanned-pages,
+.run-technical {
+  margin: 24px 0;
+}
+.severity-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  color: #9bb0ce;
+}
+.severity-filter select {
+  background: #14243b;
+  color: #bad1f1;
+  border: 1px solid #304b71;
+  border-radius: 7px;
+  padding: 7px 10px;
+}
+.issue-list {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.issue-card {
+  background: #131f32;
+  border: 1px solid #2b3c59;
+  border-radius: 8px;
+  padding: 17px;
+  overflow-wrap: anywhere;
+}
+.issue-card > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.issue-kind {
+  color: #7e9bc3;
+  font-family: Consolas, monospace;
+  font-size: 9px;
+  margin-left: auto;
+}
+.issue-url {
+  font-family: Consolas, monospace;
+  color: #8caddb;
+  font-size: 10px;
+  line-height: 1.8;
+  margin: 11px 0 10px;
+}
+.issue-card details {
+  font-size: 11px;
+  color: #a5bbdb;
+  margin-bottom: 12px;
+  line-height: 1.9;
+}
+.issue-card summary,
+.run-technical summary {
+  cursor: pointer;
+  color: #b0c9ed;
+}
+.issue-description {
+  white-space: pre-wrap;
+  margin-top: 10px;
+  color: #9eb3d1;
+}
+.severity-info {
+  border: 1px solid #354967;
+  background: #24334a;
+  color: #b4c4dd;
+}
+.severity-low {
+  border: 1px solid #365a70;
+  background: #213849;
+  color: #8fc8e5;
+}
+.severity-medium {
+  border: 1px solid #705b35;
+  background: #423823;
+  color: #e5c486;
+}
+.severity-high,
+.severity-critical {
+  border: 1px solid #7d435c;
+  background: #44283b;
+  color: #ffacc9;
+}
+.severity-critical {
+  background: #632638;
+  color: #ffc1d0;
+}
+.evidence-grid {
+  padding: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.evidence-card {
+  border: 1px solid #2b405f;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #121f32;
+}
+.evidence-card img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  display: block;
+  object-fit: cover;
+  background: #18243a;
+}
+.evidence-card-body {
+  padding: 14px;
+}
+.evidence-card-body > p {
+  color: #afc8e9;
+  font-size: 10px;
+  font-family: Consolas, monospace;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  margin-bottom: 10px;
+}
+.evidence-card-body > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: #92aacc;
+}
+.no-screenshot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  aspect-ratio: 16/9;
+  color: #7896be;
+  font-size: 11px;
+  background: #0d1728;
+}
+.run-technical {
+  padding: 20px 22px;
+  font-size: 12px;
+}
+.run-technical dl {
+  display: grid;
+  gap: 15px;
+  margin-top: 20px;
+}
+.run-technical dt {
+  color: #829ec4;
+  font-size: 10px;
+  margin-bottom: 5px;
+}
+.run-technical dd {
+  margin: 0;
+  color: #b7cbe7;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  line-height: 1.9;
+}
+@media (max-width: 1150px) {
+  .demo-project-panel {
+    flex-wrap: wrap;
+  }
+  .demo-project-panel > div {
+    flex-basis: 75%;
+  }
+  .demo-project-panel button {
+    margin-left: 40px;
+  }
+  .run-limits-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .run-limits-fields,
+  .evidence-grid {
+    grid-template-columns: 1fr;
+  }
+  .run-start-panel .panel-heading {
+    flex-wrap: wrap;
+  }
+  .run-progress > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .run-issues .panel-heading {
+    flex-wrap: wrap;
+  }
+  .run-progress {
+    padding: 18px;
+  }
+  .run-metrics .metric-value {
+    font-size: 27px;
+  }
+  .demo-project-panel button {
+    margin-left: 0;
+    white-space: normal;
+  }
+  .run-start-body {
+    padding: 18px;
+  }
+}

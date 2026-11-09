@@ -18,6 +18,7 @@ import type { Project } from "../types/api";
 import { EmptyState } from "../components/EmptyState";
 import { ResourceError, ResourceLoading } from "../components/ResourceFeedback";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog";
+import { DemoProject } from "../components/DemoProject";
 
 export function Projects() {
   const location = useLocation();
@@ -55,6 +56,7 @@ export function Projects() {
           Nuevo proyecto
         </Link>
       </div>
+      <DemoProject />
       {notice && (
         <div className="inline-alert success-alert" role="status">
           <CheckCircle2 size={17} />

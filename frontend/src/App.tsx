@@ -5,6 +5,8 @@ import { Settings } from "./pages/Settings";
 import { Projects } from "./pages/Projects";
 import { NewProject, EditProject } from "./pages/ProjectEditor";
 import { ProjectDetail } from "./pages/ProjectDetail";
+import { RunDetail } from "./pages/RunDetail";
+import { Analyses } from "./pages/Analyses";
 
 export default function App() {
   return (
@@ -20,6 +22,8 @@ export default function App() {
           <Route path="projects/new" element={<NewProject />} />
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="projects/:id/edit" element={<EditProject />} />
+          <Route path="runs" element={<Analyses />} />
+          <Route path="runs/:id" element={<RunDetail />} />
           <Route
             path="*"
             element={

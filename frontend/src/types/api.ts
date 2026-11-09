@@ -51,3 +51,68 @@ export interface DashboardResponse {
   projects: { id: string; name: string; base_url: string; run_count: number }[];
   generated_at: string;
 }
+
+export type AnalysisStatus =
+  "pending" | "running" | "completed" | "failed" | "cancelled";
+export interface RunLimits {
+  max_pages: number;
+  max_depth: number;
+  navigation_timeout_seconds: number;
+  timeout_seconds: number;
+  max_requests: number;
+}
+export interface TestingCapabilities {
+  mode: "controlled_demo";
+  demo_enabled: boolean;
+  remote_enabled: false;
+  demo_url: string;
+  defaults: RunLimits;
+  maximums: RunLimits;
+}
+export interface TestRun {
+  id: string;
+  project_id: string;
+  status: AnalysisStatus;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  pages_scanned: number;
+  issues_found: number;
+  request_count: number;
+  duration_ms: number;
+  error_message: string | null;
+  cancellation_requested: boolean;
+  limits: RunLimits;
+}
+export interface RunList {
+  items: TestRun[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+export interface TestIssue {
+  id: string;
+  test_run_id: string;
+  type: string;
+  severity: "info" | "low" | "medium" | "high" | "critical";
+  title: string;
+  description: string;
+  url: string;
+  evidence_url: string | null;
+  created_at: string;
+}
+export interface TestPage {
+  id: string;
+  test_run_id: string;
+  url: string;
+  status_code: number | null;
+  load_time_ms: number;
+  depth: number;
+  screenshot_url: string | null;
+  scanned_at: string;
+}
+export interface RunDetailData {
+  run: TestRun;
+  issues: TestIssue[];
+  pages: TestPage[];
+}
