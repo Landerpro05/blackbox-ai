@@ -1,0 +1,1 @@
+"""BLACKBOX AI application package."""
