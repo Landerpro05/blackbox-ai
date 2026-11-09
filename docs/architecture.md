@@ -1,4 +1,4 @@
-# Arquitectura — fase 4
+# Arquitectura — fase 5
 
 ## Estructura definitiva
 
@@ -9,10 +9,10 @@ backend/
   app/
     api/             salud, dashboard, proyectos, ejecuciones, evidencias e informes
     core/            configuración, motor SQLite, sesiones y ámbito de workspace
-    models/          Project, Run, Issue y enumeraciones
+    models/          Project, Run, Issue, TestPage, AIAnalysis y enumeraciones
     repositories/    proyectos, resultados, progreso y agregaciones del dashboard
     schemas/         contratos de respuesta Pydantic
-    services/        coordinación, bloqueo, informes, comparación y analítica
+    services/        coordinación, informes, comparación, reglas y adaptador LLM
     testing/         Chromium, demo integrada, política y almacén de evidencias
     main.py          aplicación ASGI, recuperación y cierre
   alembic/versions/  historial de migraciones
@@ -29,7 +29,7 @@ docs/
 scripts/             arranque independiente desde PowerShell
 ```
 
-Las carpetas de servicios, agentes y testing se añadirán cuando contengan implementación real. Los paquetes no incluyen módulos vacíos para funciones futuras.
+Los paquetes no incluyen módulos vacíos para funciones futuras.
 
 ## Flujo
 
@@ -37,7 +37,7 @@ React → cliente HTTP común → FastAPI → repositorios SQLAlchemy → SQLite
 
 Salud y dashboard conservan sus rutas `/api/v1`. Proyectos reutiliza un router bajo `/api/v1/projects` y `/api/projects`; no hay dos implementaciones ni dos conjuntos de datos. La API devuelve listas paginadas (por defecto 20, máximo 100), y el frontend recorre páginas de 12.
 
-Un proceso de backend y un proceso Vite. El análisis es una tarea asyncio con un Chromium headless, un contexto y una pestaña de recorrido. Las transacciones de progreso se ejecutan en hilos, con sesiones independientes y esperas protegidas frente a cancelación. No hay colas externas, contenedores, GPU ni modelos de IA.
+Un proceso de backend y un proceso Vite. El análisis es una tarea asyncio con un Chromium headless, un contexto y una pestaña de recorrido. Las transacciones de progreso se ejecutan en hilos, con sesiones independientes y esperas protegidas frente a cancelación. La interpretación posterior usa reglas o una petición LLM opcional. No hay colas externas, contenedores, GPU ni modelos locales.
 
 Las migraciones se ejecutan explícitamente antes de servir (el script de arranque lo hace). El servidor no utiliza `create_all`, no borra datos ni crea registros de demostración. La ruta relativa de la base se resuelve contra `backend/`, incluso si se llama Alembic desde otra carpeta.
 
@@ -92,7 +92,7 @@ Chromium se inicia sin GPU, con resolución de nombres deshabilitada y proxy sin
 
 La demo tiene activación explícita (deshabilitada por defecto y prohibida en production) y consentimiento por ejecución. Para habilitar sitios reales en el futuro será necesario definir y probar aislamiento de egress, verificación DNS/IP y redirecciones/subrecursos en esa arquitectura. La fase 3 no habilita ese modo.
 
-Los mensajes se redactan antes de persistirlos, y las URLs se guardan sin consultas, credenciales ni fragmentos. Las capturas enmascaran todos los campos y bloques sensibles conocidos de la demo; su alcance está acotado al contenido integrado. No se almacenan cuerpos de peticiones, cookies ni cabeceras de autenticación. No hay IA ni ejecución de comandos arbitrarios.
+Los mensajes se redactan antes de persistirlos, y las URLs se guardan sin consultas, credenciales ni fragmentos. Las capturas enmascaran todos los campos y bloques sensibles conocidos de la demo; su alcance está acotado al contenido integrado. No se almacenan cuerpos de peticiones, cookies ni cabeceras de autenticación. El motor no utiliza un LLM para navegar ni ejecuta comandos arbitrarios; la interpretación de IA está separada y solo consume resultados ya finalizados.
 
 ## Frontend y comprobación
 
@@ -112,7 +112,7 @@ No existe autenticación multiusuario ni despliegue SaaS en esta fase. No expong
 - Informe: como máximo 200 incidencias y 20 páginas, orden estable por fecha e ID, textos de hasta 4000 caracteres (título 200, URL 2048). Los totales y las omisiones se obtienen mediante SQL; no se deducen del número de detalles incluidos.
 - Analítica de proyecto: subconsulta de IDs dentro del workspace, agregaciones SQL sobre sus incidencias/páginas y paginación de ejecuciones (20 por defecto, máximo 50). No se cargan relaciones ORM de todas las ejecuciones. Los agregados por ejecución se restringen a los IDs de esa página.
 - La regresión del proyecto corresponde a sus dos últimas ejecuciones finalizadas. Solo se cargan sus colecciones acotadas; no se recompara todo el histórico. Si no hay dos ejecuciones ordenables por fecha, se devuelve `null`.
-- Se reutilizan índices existentes: `projects.workspace_id`, `runs.project_id`, `runs.workspace_id`, `runs.created_at`, `issues.run_id` y `test_pages.test_run_id`. No se justifica añadir almacenamiento ni índices para esta consulta local acotada. No hay modificación de esquema; el head continúa en `c39d87a4e620` y `alembic check` comprueba su correspondencia.
+- Se reutilizan índices existentes: `projects.workspace_id`, `runs.project_id`, `runs.workspace_id`, `runs.created_at`, `issues.run_id` y `test_pages.test_run_id`. Los informes no requieren nuevos índices ni columnas. La fase 5 añade su tabla independiente mediante `d51e09a3b842`; `alembic check` comprueba la correspondencia completa.
 - HTML/PDF se generan bajo demanda, con un semáforo por proceso que permite una generación a la vez y rechaza contención con 409. Las rutas síncronas se ejecutan en el threadpool de FastAPI; no se bloquea el bucle asyncio del motor. No se crea una cola ni un servicio adicional.
 
 ### Renderizado offline y privacidad
@@ -141,6 +141,61 @@ Los registros antiguos sin `Run.target_url` muestran «Destino no registrado». 
 
 Las listas de proyectos y ejecuciones para comparar son paginadas, conservan selecciones de otras páginas y rechazan el mismo análisis en ambos lados. Los datos seleccionados se vuelven a validar en el servidor. Recharts se carga con importación dinámica, compartiendo su chunk entre dashboard y analítica. Las vistas incluyen errores, reintentos, ausencia de datos y filtros. No hay HTML de resultados insertado mediante `dangerouslySetInnerHTML`.
 
+## AI Intelligence
+
+La rama de fase 5 parte del commit final de fase 4, sin reconstruir ni fusionar las ramas anteriores. La interpretación es posterior al testing: solo recibe ejecuciones finalizadas. No puede cambiar el alcance del crawler, enviar formularios, ejecutar propuestas o modificar resultados históricos.
+
+```mermaid
+flowchart LR
+  DB[(SQLite: Run, Issue, TestPage)] --> Collector[Evidence Collector]
+  Collector --> Rules[Diagnóstico por reglas]
+  Collector --> Consent{Consentimiento explícito}
+  Consent -->|Proveedor y modelo coinciden| LLM[Adaptador Messages]
+  Rules --> Validation[Pydantic y referencias]
+  LLM --> Validation
+  Validation --> Templates[Plantillas Playwright]
+  Templates --> Stored[(AIAnalysis)]
+  Stored --> UI[React: hechos e hipótesis separados]
+```
+
+### Evidencias y reglas
+
+`services/ai_evidence.py` reutiliza `reporting.report_data`, su redacción y ámbito de workspace. Selecciona como máximo 20 incidencias y 10 páginas del documento acotado; conserva URLs completas, tipo, severidad, mensajes limitados, códigos HTTP, tiempos y referencias de capturas. No abre archivos de evidencia ni incorpora bytes de imagen. El resumen SQL mantiene los totales aunque se omitan detalles.
+
+Una consulta indexada obtiene solo la ejecución finalizada inmediatamente anterior del proyecto y workspace, si se solicitó histórico. Se reutiliza `reporting.compare` y se retienen únicamente sus recuentos/indicador de parcialidad. No se carga todo el histórico. Las agrupaciones usan `reporting.fingerprint`, con un campo `source=deterministic`; un recorte de contexto mantiene coherencia entre incidencias y grupos y comunica omisiones.
+
+La instantánea serializada tiene un límite de 12 000 bytes UTF-8. Los mensajes reconocidos como instrucciones o comandos se sustituyen por un aviso de cuarentena. Además de la redacción de fase 4, se elimina cualquier coincidencia literal de la clave backend configurada. Este filtro es una defensa limitada, no una clasificación infalible de contenido malicioso o secreto.
+
+`services/ai_rules.py` devuelve `EngineResult` también cuando no se configura un proveedor. Usa reglas versionadas para HTTP, enlaces, JS, consola, timeout y etiquetas; lo desconocido reconoce información insuficiente. No representa sus respuestas como generación de un modelo. Las hipótesis de reglas tienen confianza baja y limitaciones explícitas; no añaden supuestos logs, código o acciones observadas.
+
+### Proveedor y validación
+
+`AnalysisProvider` es un protocolo asíncrono que devuelve una estructura `ProviderResult`. El primer adaptador `AnthropicProvider` usa HTTPX2 contra un único destino HTTPS fijo. No acepta un endpoint del usuario, no sigue redirecciones ni proxies del entorno y conserva validación TLS. Las claves se tipan `SecretStr`, se usan como cabecera de ese proveedor y nunca se incluyen en la instantánea, instrucciones o capacidades.
+
+Las instrucciones SYSTEM y el JSON `untrusted_evidence` ocupan campos separados del protocolo Messages. No se envían herramientas ni se habilita thinking. `output_config.format` especifica un esquema JSON: se retiran solo las restricciones no admitidas por la API, que se vuelven a exigir mediante Pydantic estricto al recibir. Se rechazan contenido no textual, truncamiento, errores de formato y más de 128 000 bytes de respuesta decodificada. Los errores se convierten a categorías internas seguras, sin persistir cuerpo, cabeceras o excepciones arbitrarias.
+
+`validate_result` comprueba límites, IDs existentes y no repetidos, al menos una incidencia por hallazgo/test, plantilla compatible y URL utilizable. Las URLs nuevas, comandos, código fuente no aportado, afirmaciones explícitas de causa confirmada y códigos HTTP no observados se rechazan. Los demás textos se redactan antes de guardar. Estas validaciones refuerzan el contrato; no prueban la veracidad semántica de cada frase. La UI conserva la etiqueta de hipótesis sin confirmar incluso si la confianza cualitativa del modelo es alta.
+
+El proveedor devuelve planes de test, nunca un campo libre de código. `render_tests` construye tres plantillas Python conocidas: respuesta HTTP <400, ausencia de pageerror o ausencia de consola error durante navegación. Elige una incidencia citada compatible, usa su ruta completa y la serializa como un literal para evitar inyección de Python. Si falta URL, el modo reglas omite la propuesta y un plan LLM incompatible se rechaza. BASE_URL queda como marcador explícito para un entorno autorizado. El código solo se muestra/copia: no hay endpoint de ejecución, shell, acceso arbitrario a archivos ni aplicación automática de correcciones.
+
+### Tareas, consentimiento y cuotas
+
+`AIManager` vive en el lifespan, después de adquirir el bloqueo de proceso existente. POST valida ámbito/estado y crea una fila con una transacción corta `BEGIN IMMEDIATE`; el trabajo continúa en una tarea asyncio. Las consultas/escrituras SQLite usan sesiones independientes en hilos, protegidas para que una cancelación no deje una escritura en segundo plano sin esperar. Una restricción única del slot activo permite una sola interpretación por base de datos. El motor Playwright mantiene su slot independiente.
+
+LLM exige `authorize_external` booleano estricto y los nombres de proveedor/modelo confirmados, iguales a la configuración actual. Se validan antes de consultar caché o reservar consumo. Rules no necesita autorización externa ni clave. El hash de caché incluye contexto redactado, modo, proveedor, modelo, máximo de hipótesis y `prompt_version`; solo se reutilizan pending/running/completed. Los fallos se pueden volver a solicitar dentro de las cuotas; no hay reenvío automático.
+
+Las cuotas por workspace se consultan mediante agregaciones SQL sobre fechas UTC y reservas persistidas, dentro de la misma transacción. Los intentos adicionales, fallos y cancelaciones se reservan conservadoramente y no se reembolsan. Los límites por defecto, fórmula de tokens y tarifas opcionales están en el README. Los precios son configuración explícita; no se presupone coste monetario conocido si faltan. Estas estimaciones son controles locales y no sustituyen los límites de la cuenta comercial.
+
+Cada intento está limitado por timeout y el trabajo completo tiene un plazo máximo. Solo 429/502/503/529 permiten un reintento, con máximo configurable de uno y pausa de 1 s. Se ofrece cancelación; puede no revertir un cargo externo ya iniciado. Al cerrar se cancelan/esperan las tareas y se libera el slot incluso si la tarea aún no había empezado. Al arrancar, las filas interrumpidas pasan a failed; no se contacta al proveedor para reanudarlas. Un fallo de IA no cambia las incidencias originales ni impide usar informes/CRUD.
+
+### Persistencia y frontend
+
+La migración `d51e09a3b842` añade `ai_analyses`, sin modificar las tablas previas. Guarda IDs, workspace, proveedor/modelo/modo/estado, instantánea redactada, resultado estructurado, versión/hash, fechas, consentimiento y reservas/uso comunicado. No almacena cadena de pensamiento ni prompts/respuestas brutos. La FK a runs elimina interpretaciones al borrar el proyecto; se impide borrar/editar un proyecto con una interpretación activa.
+
+Índices nuevos: slot activo único, `(run_id, created_at)` para historial/caché/cuota por ejecución y `(workspace_id, created_at)` para límites diarios/cooldown. Las lecturas unen AIAnalysis, Run y Project y exigen los tres ámbitos. El histórico está paginado (5 por defecto, máximo 20); no se devuelve una colección ilimitada.
+
+`AIIntelligencePanel` amplía RunDetail con modal, creación, polling y selección de resultados guardados. `AIAnalysisResult` se comparte con `/ai-analyses/:id` y separa hechos, hipótesis, recomendaciones, relaciones hipotéticas y código. Sus citas abren las evidencias usadas; las capturas se consultan mediante la ruta protegida existente y nunca se envían al modelo. El portapapeles es una acción expresa del usuario. Las claves no forman parte de ningún contrato TypeScript ni variable VITE_.
+
 ## Referencias técnicas
 
 - [FastAPI: CORS](https://fastapi.tiangolo.com/tutorial/cors/) para configurar orígenes explícitos.
@@ -151,3 +206,5 @@ Las listas de proyectos y ejecuciones para comparar son paginadas, conservan sel
 - [Playwright: cierre del navegador](https://playwright.dev/python/docs/api/class-browser#browser-close) para el ciclo de vida de los recursos.
 - [ReportLab: Platypus](https://docs.reportlab.com/reportlab/userguide/ch5_platypus/) y [párrafos](https://docs.reportlab.com/reportlab/userguide/ch6_paragraphs/) para PDF sin navegador y tratamiento seguro del marcado.
 - [Python CSV](https://docs.python.org/3.12/library/csv.html) para serialización y escapes del formato.
+- [Anthropic: salidas JSON estructuradas](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) para el contrato y restricciones de esquema del adaptador inicial.
+- [HTTPX2](https://github.com/pydantic/httpx2) para transporte HTTP asíncrono, límites y transportes de evaluación controlados.

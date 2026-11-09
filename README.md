@@ -1,8 +1,8 @@
 # BLACKBOX AI
 
-Plataforma de testing web autorizado. **Fase 4: informes, analítica y comparación de regresiones.** Backend FastAPI y frontend React independientes, SQLite persistente, CRUD, motor Playwright con demostración controlada, cancelación, capturas y exportaciones reales.
+Plataforma de testing web autorizado. **Fase 5: AI Intelligence con reglas locales y LLM externo opcional.** Reutiliza FastAPI, React, SQLite, Playwright controlado, informes y comparación para interpretar incidencias, citar evidencias y proponer tests sin ejecutarlos.
 
-Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-ai). La fase 4 se desarrolla en `feature/phase-4-reporting`, sin merge automático a `main`. Los commits se redactan en castellano y agrupan cambios relacionados. Los entornos virtuales, dependencias instaladas, secretos, bases de datos y evidencias locales quedan fuera del control de versiones.
+Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-ai). La rama `feature/phase-5-ai-intelligence` parte de `feature/phase-4-reporting`; no hay merge automático a `main` ni a fase 4. Los commits se redactan en castellano y agrupan cambios relacionados. Los entornos virtuales, dependencias instaladas, secretos, bases de datos y evidencias locales quedan fuera del control de versiones.
 
 ## Alcance de esta entrega
 
@@ -17,8 +17,9 @@ Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-a
 - Análisis real de la demo integrada mediante Chromium headless, con errores HTTP, JavaScript, consola, enlaces rotos y revisión pasiva de etiquetas de formularios.
 - Historial, progreso, filtros por severidad, tiempos de navegación, evidencias y cancelación.
 - Informes HTML autónomos y PDF, exportaciones JSON/CSV, comparación de ejecuciones y gráficos históricos con datos de SQLite.
+- Diagnósticos por reglas sin clave, interpretación LLM con consentimiento, hipótesis vinculadas a evidencias, agrupación determinista y propuestas de tests Playwright copiables.
 
-**La navegación remota está deshabilitada.** Solo se analiza contenido integrado del proyecto, con activación del servidor y autorización expresa por ejecución. Guardar una URL no provoca navegación. Los informes se generan offline con los resultados guardados. La fase 5 no se ha iniciado. No hay IA generativa, autenticación multiusuario ni despliegue público.
+**La navegación remota está deshabilitada.** Solo se analiza contenido integrado del proyecto, con activación del servidor y autorización expresa por ejecución. Guardar una URL no provoca navegación. Los informes y el análisis por reglas funcionan offline. El LLM opcional envía únicamente contexto textual redactado al proveedor configurado, tras autorización expresa; no recibe herramientas ni capturas. No hay autenticación multiusuario ni despliegue público.
 
 ## Estructura
 
@@ -32,7 +33,7 @@ ProyectoTocho/
 ```
 
 Consulta [la arquitectura](docs/architecture.md) para conocer límites, semántica de contadores y controles pendientes.
-Los registros de [fase 1](docs/verification-phase-1.md), [fase 2](docs/verification-phase-2.md), [fase 3](docs/verification-phase-3.md) y [fase 4](docs/verification-phase-4.md) detallan los resultados comprobados, incluidas pruebas reales de navegador y revisión visual de PDF y pantallas.
+Los registros de [fase 1](docs/verification-phase-1.md), [fase 2](docs/verification-phase-2.md), [fase 3](docs/verification-phase-3.md), [fase 4](docs/verification-phase-4.md) y [fase 5](docs/verification-phase-5.md) detallan los resultados comprobados, incluidas pruebas reales de navegador y evaluaciones controladas de inteligencia.
 
 ## Windows · instalación desde cero
 
@@ -238,7 +239,7 @@ npm.cmd run build
 npm.cmd run test:integration
 ```
 
-`pytest` aplica las migraciones a archivos SQLite temporales. Conserva los 118 casos de fase 3 y añade pruebas de informes, comparación, agregaciones y descargas desde React. Los resultados de esta entrega están en [la verificación de fase 4](docs/verification-phase-4.md). No modifica `backend/data/blackbox.db`. La prueba de React necesita Node y las dependencias del frontend instaladas. Para ejecutar solo los casos sin navegador usa `python -m pytest -m "not browser"` con el Python del entorno virtual.
+`pytest` aplica las migraciones a archivos SQLite temporales. Conserva los 158 casos de fase 4 y añade evaluaciones de reglas, contrato LLM, privacidad, cuotas, persistencia y navegador. Los resultados de esta entrega están en [la verificación de fase 5](docs/verification-phase-5.md). No modifica `backend/data/blackbox.db` ni realiza llamadas comerciales reales. La prueba de React necesita Node y las dependencias del frontend instaladas. Para ejecutar solo los casos sin navegador usa `python -m pytest -m "not browser"` con el Python del entorno virtual.
 
 `npm run build` comprueba TypeScript y genera `frontend/dist/`. `npm run test:integration` conserva la comprobación del cliente TypeScript del CRUD contra FastAPI temporal. La prueba `backend/tests/test_browser_ui.py`, ejecutada con pytest, añade los clics reales de creación de demo, inicio, resultados, filtros, evidencias, menú móvil y cancelación. Los procesos y datos de prueba son temporales; las capturas de QA quedan en `.tools/qa/`, ignoradas por Git.
 
@@ -261,7 +262,7 @@ VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
 
 Sin esos archivos se utilizan los mismos valores por defecto. Reinicia los servicios después de cambiar configuración. Las rutas relativas de SQLite se resuelven contra `backend/`, no contra el directorio de la terminal. La base habitual queda en `backend/data/blackbox.db`; reiniciar los servidores conserva los datos. Alembic, no `create_all`, controla el esquema.
 
-Las variables `VITE_` son visibles en el navegador. No guardes allí secretos. No hay campos para credenciales ni claves de IA en esta fase.
+Las variables `VITE_` son visibles en el navegador. No guardes allí secretos. La clave de IA solo se configura en el backend; la interfaz nunca la recibe ni dispone de un campo para introducirla.
 
 Las evidencias se guardan bajo `backend/evidence/{run_id}/`. No se publica ese directorio como archivos estáticos: cada PNG pasa por una ruta con UUID y comprobación de workspace. Al cancelar o fallar se conservan los resultados parciales ya registrados. Los archivos temporales de capturas y el perfil del navegador se cierran/limpian; al borrar un proyecto se eliminan sus evidencias conocidas.
 
@@ -317,4 +318,72 @@ Se escapa todo texto al generar HTML y marcado PDF. La CSP del HTML impide conte
 
 No hay cambios de esquema ni nuevos índices: se reutilizan los índices por workspace, proyecto, ejecución y fechas. Alembic sigue siendo la autoridad del esquema. ReportLab y sus dependencias de imagen se instalan con los locks habituales; `pypdf` solo se usa en pruebas. Poppler se utilizó como herramienta local de revisión, no es dependencia de la aplicación.
 
-**La fase 5 requiere tu confirmación. No se ha iniciado ni se ha integrado IA.**
+## AI Intelligence - Fase 5
+
+### Modo local sin API
+
+No requiere clave, GPU ni modelo instalado. En una ejecución finalizada, pulsa **Analizar con IA**, conserva **Análisis basado en reglas** y confirma. Se guardan el resumen, hipótesis sin confirmar, recomendaciones, evidencias usadas y plantillas compatibles con HTTP, JavaScript o consola. Las incidencias desconocidas o incompletas reciben un diagnóstico general que reconoce la falta de información. Los resultados se pueden volver a consultar tras reiniciar.
+
+La sección distingue los hechos guardados de las hipótesis, recomendaciones y código propuesto. Las agrupaciones por huella reutilizan fase 4; las relaciones adicionales de un LLM, si existen, se muestran aparte como hipotéticas. Puedes copiar los tests; **no se ejecutan ni se aplican correcciones automáticamente**. El código usa una constante BASE_URL que debes sustituir por tu entorno autorizado. El dominio virtual de la demo solo existe dentro del motor BLACKBOX AI.
+
+### Modo LLM opcional
+
+El primer adaptador utiliza la API Messages de Anthropic, mediante una interfaz independiente del proveedor. No se instala un SDK de IA ni modelos locales; HTTPX2, ya usado en pruebas, pasa a ser dependencia de ejecución. Modelo y clave se configuran exclusivamente en `backend/.env` o en el entorno del proceso:
+
+```dotenv
+BLACKBOX_AI_PROVIDER=anthropic
+BLACKBOX_AI_MODEL=identificador-de-un-modelo-compatible
+BLACKBOX_AI_API_KEY=
+BLACKBOX_AI_TIMEOUT_SECONDS=30
+BLACKBOX_AI_MAX_RETRIES=1
+BLACKBOX_AI_MAX_OUTPUT_TOKENS=2000
+BLACKBOX_AI_DAILY_CALL_LIMIT=10
+BLACKBOX_AI_RUN_CALL_LIMIT=2
+BLACKBOX_AI_DAILY_TOKEN_LIMIT=100000
+BLACKBOX_AI_COOLDOWN_SECONDS=60
+```
+
+El identificador anterior es un marcador: usa un modelo disponible en tu cuenta que admita Messages con salida JSON estructurada. Guarda tu clave real solo en ese archivo local ignorado o en el entorno del backend. No la pegues en archivos versionados ni en variables VITE_. Consulta [las salidas estructuradas oficiales](https://platform.claude.com/docs/en/build-with-claude/structured-outputs). Para desactivar llamadas externas usa `BLACKBOX_AI_PROVIDER=disabled`; las reglas siguen disponibles.
+
+Después de instalar el lock actualizado y aplicar Alembic, reinicia FastAPI. Un proceso Uvicorn ya abierto no incorpora estos módulos automáticamente. No sobrescribas un `.env` existente con el ejemplo.
+
+El modal identifica proveedor/modelo, datos enviados, límites y posibles costes. **Seleccionar LLM no autoriza el envío**: hay que marcar la casilla explícita. El servidor exige JSON booleano `true` y coincidencia de proveedor/modelo confirmados. Si cambia la configuración, rechaza la solicitud para que se revise la autorización. No se permite cambiar endpoint, proveedor, clave o modelo mediante el cuerpo de la petición.
+
+Se envían hasta **12 000 bytes de contexto textual**, con como máximo 20 incidencias y 10 páginas, más instrucciones y esquema JSON. Las URLs de las evidencias incluidas se conservan completas, hasta el límite histórico de 2048 caracteres. Se omiten registros completos para cumplir el presupuesto, sin recortar rutas e inventar destinos de tests. La comparación histórica opcional contiene solo un resumen del análisis anterior del mismo proyecto/workspace. No se envían capturas, archivos, código fuente, cabeceras, cookies ni claves. La redacción por patrones no es una garantía universal: revisa la información antes de autorizar al proveedor.
+
+### Límites, costes y estados
+
+- Una interpretación activa por base de datos, tanto rules como llm. La llamada LLM se realiza en segundo plano: POST devuelve 202 y el frontend consulta el estado.
+- Se reutiliza un resultado pending/running/completed si coincide el contexto redactado, modo, proveedor, modelo, máximo de hipótesis y versión de prompt. La autorización externa se comprueba también al reutilizarlo.
+- Por defecto: 10 solicitudes LLM por workspace/día UTC, 2 por ejecución en toda su vida, 100 000 tokens reservados por día y 60 s entre nuevas solicitudes externas. Los fallos y cancelaciones consumen cuota; las consultas/caché no hacen otra llamada. Reglas: hasta 100 creaciones nuevas al día por workspace.
+- Hasta un reintento para 429/502/503/529, tras una pausa de 1 s. Los demás errores, respuestas truncadas/inválidas y timeouts no se reintentan. Cada intento tiene timeout; hay además un plazo total del trabajo. Cancelar interrumpe la espera, aunque una petición ya enviada puede generar cargos.
+- El servidor reserva `(entrada_estimada + salida_máxima) × intentos_máximos`. La entrada se estima con bytes UTF-8 del contexto, esquema e instrucciones más 1024 de margen; **no es el tokenizer del proveedor**. Los tokens reales de la última respuesta válida se guardan por separado cuando se comunican.
+- Si configuras ambas tarifas `BLACKBOX_AI_INPUT_USD_PER_MILLION` y `BLACKBOX_AI_OUTPUT_USD_PER_MILLION`, la reserva en USD es `(entrada_estimada × tarifa_entrada + salida_máxima × tarifa_salida) × intentos_máximos / 1 000 000`, redondeada hacia arriba a 8 decimales. No se incorporan tarifas supuestas ni actualizaciones automáticas de precios.
+- `BLACKBOX_AI_DAILY_BUDGET_USD` es opcional y exige ambas tarifas. La suma diaria de reservas se compara antes de llamar. Sin tarifas, el coste monetario es desconocido; siguen vigentes cuotas de tokens/solicitudes. Son controles locales conservadores, no una factura ni un límite certificado por el proveedor; configura también el presupuesto de tu cuenta externa.
+- El cierre cancela trabajos; tras un reinicio, pending/running pasan a failed. No hay reenvío automático de evidencias ni reintentos al arrancar. Los resultados originales, informes y CRUD siguen disponibles si falla la inteligencia.
+
+| Endpoint bajo `/api/v1` | Función |
+| --- | --- |
+| `GET /ai/capabilities` | Disponibilidad, proveedor/modelo y límites públicos, sin claves |
+| `POST /runs/{run_id}/ai-analysis` | Crear trabajo: 202 nuevo, 200 si se reutiliza |
+| `GET /runs/{run_id}/ai-analysis?limit=5&offset=0` | Histórico paginado; máximo 20 |
+| `GET /ai-analyses/{analysis_id}` | Resultado estructurado y evidencias usadas |
+| `POST /ai-analyses/{analysis_id}/cancel` | Cancelar interpretación activa, 202 |
+
+Ejemplo de cuerpo sin envío externo:
+
+```json
+{"mode":"rules","max_findings":5,"include_history":true}
+```
+
+Para LLM se requiere `mode="llm"`, `authorize_external=true`, `consent_provider` y `consent_model` iguales a `/ai/capabilities`. No hay un campo de prompt libre. HTTP 403 indica falta de autorización; 404, recurso inexistente o ajeno; 409, ejecución no finalizada, contención o configuración pendiente/cambiada; 422, parámetros inválidos; 429, cuota o presupuesto local; 503, servicio no disponible. Los errores del proveedor se guardan como un estado failed con mensaje genérico, sin exponer su respuesta o la clave.
+
+### Validación y límites de las conclusiones
+
+Las instrucciones del sistema están separadas del JSON de evidencias no confiables. Se ponen en cuarentena patrones conocidos de instrucciones/comandos incrustados, se valida el JSON con Pydantic estricto y se comprueban referencias, compatibilidad de plantillas, URLs y códigos HTTP citados. Se rechazan campos de código libre, comandos y referencias a archivos de código no suministrados. Estas defensas no demuestran inmunidad completa a prompt injection ni fidelidad semántica de toda frase generada.
+
+Todos los resultados generativos son interpretaciones, nunca hechos nuevos certificados. Las hipótesis permanecen sin confirmar, aunque el modelo indique confianza alta. No se almacena cadena de pensamiento ni prompts/respuestas brutos. Una plantilla HTTP solo comprueba la respuesta inicial; las de JS/consola observan la navegación, no todos los flujos posteriores. Si falta una URL utilizable, no se inventa un test. La utilidad diagnóstica y las relaciones del modelo requieren revisión humana.
+
+Los tests emplean fixtures y transportes/proveedores controlados, sin llamadas comerciales reales. **No se ha verificado una llamada real con una cuenta y modelo comercial**; la configuración y calidad de ese modelo deben validarse después de autorizar el envío. Consulta [la verificación de fase 5](docs/verification-phase-5.md) para los resultados concretos.
+
+**La fase 6 no se ha iniciado.**
