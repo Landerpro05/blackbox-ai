@@ -1,8 +1,6 @@
 # BLACKBOX AI
 
-Plataforma de testing web autorizado. **Fase 3: motor Playwright con demostración controlada.** Backend FastAPI y frontend React independientes, SQLite persistente, CRUD, ejecuciones en segundo plano, cancelación y resultados con capturas.
 
-Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-ai), rama `main`. Los commits se redactan en castellano y agrupan cambios relacionados. Los entornos virtuales, dependencias instaladas, secretos, bases de datos y evidencias locales quedan fuera del control de versiones.
 
 ## Alcance de esta entrega
 
