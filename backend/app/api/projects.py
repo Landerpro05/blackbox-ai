@@ -83,5 +83,22 @@ def update_project(
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(project_id: UUID, repository: Repository) -> Response:
-    repository.delete(require_project(repository, project_id))
+    project = require_project(repository, project_id)
+    # Remember owned run IDs before the database cascade removes them.
+    from sqlalchemy import select
+    from app.models import Run
+    from app.testing.evidence import EvidenceStore
+    from app.core.config import get_settings
+
+    run_ids = list(
+        repository.session.scalars(select(Run.id).where(Run.project_id == project.id))
+    )
+    repository.delete(project)
+    store = EvidenceStore(get_settings().evidence_dir)
+    for run_id in run_ids:
+        try:
+            store.remove_run(run_id)
+        except (OSError, ValueError):
+            # The data deletion succeeded; an administrator can clean orphaned files.
+            pass
     return Response(status_code=status.HTTP_204_NO_CONTENT)

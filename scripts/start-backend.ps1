@@ -1,8 +1,13 @@
-param([int]$Port = 8000, [switch]$Reload)
+param([int]$Port = 8000, [switch]$Reload, [switch]$Demo)
 $ErrorActionPreference = 'Stop'
+if ($Demo) { $env:BLACKBOX_DEMO_TESTING_ENABLED = 'true' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $backendRoot = Join-Path $projectRoot 'backend'
 $pythonExe = Join-Path $backendRoot '.venv\Scripts\python.exe'
+$browserCache = Join-Path $projectRoot '.tools\browsers'
+if ((Test-Path -LiteralPath $browserCache) -and -not $env:PLAYWRIGHT_BROWSERS_PATH) {
+    $env:PLAYWRIGHT_BROWSERS_PATH = $browserCache
+}
 if (-not (Test-Path -LiteralPath $pythonExe)) {
     throw 'Falta backend/.venv. Instala las dependencias siguiendo el README.'
 }

@@ -1,7 +1,8 @@
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from app.models import Project
+from app.models import Project, Run
+from app.core.errors import RunBusy
 from app.schemas.projects import ProjectCreate, ProjectUpdate
 
 
@@ -43,6 +44,7 @@ class ProjectRepository:
         return project
 
     def update(self, project: Project, data: ProjectUpdate) -> Project:
+        self._guard_mutation(project.id)
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(project, field, value)
         self.session.commit()
@@ -50,5 +52,15 @@ class ProjectRepository:
         return project
 
     def delete(self, project: Project) -> None:
+        self._guard_mutation(project.id)
         self.session.delete(project)
         self.session.commit()
+
+    def _guard_mutation(self, project_id: str) -> None:
+        self.session.execute(text("BEGIN IMMEDIATE"))
+        if self.session.scalar(
+            select(Run.id)
+            .where(Run.project_id == project_id, Run.active_slot == 1)
+            .limit(1)
+        ):
+            raise RunBusy("El proyecto tiene un análisis activo.")

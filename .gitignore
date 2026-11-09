@@ -16,6 +16,7 @@ backend/evidence/
 *.db
 *.db-shm
 *.db-wal
+*.worker.lock
 coverage/
 .DS_Store
 
