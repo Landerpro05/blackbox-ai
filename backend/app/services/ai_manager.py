@@ -16,7 +16,7 @@ from app.repositories.runs import scoped_run
 from app.schemas.intelligence import AnalysisCreate, AnalysisResponse, EngineResult
 from app.services.ai_evidence import DANGEROUS, PROMPT_VERSION, collect, safe_text
 from app.services.ai_provider import ProviderError, get_provider, input_estimate
-from app.services.ai_rules import analyze_rules, render_tests
+from app.services.ai_rules import analyze_rules, render_tests, test_source
 
 ACTIVE_AI = ("pending", "running")
 
@@ -88,17 +88,8 @@ def validate_result(
     for item in [*result.findings, *result.suggested_tests]:
         if not any(key in issues for key in item.evidence_ids):
             raise ProviderError("missing_issue_evidence")
-    kinds = {
-        "http_status": {"http", "broken_link"},
-        "no_page_errors": {"javascript"},
-        "no_console_errors": {"console"},
-    }
     for test in result.suggested_tests:
-        if not any(
-            issues[key]["type"] in kinds[test.template]
-            for key in test.evidence_ids
-            if key in issues
-        ):
+        if test_source(test.template, test.evidence_ids, issues) is None:
             raise ProviderError("incompatible_test")
     allowed_urls = {item["url"] for item in evidence["issues"] + evidence["pages"]}
     observed_codes = {

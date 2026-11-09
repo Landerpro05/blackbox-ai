@@ -15,6 +15,7 @@ from app.main import app
 from app.models import AIAnalysis, Issue, Project, Run, RunStatus, Severity, TestPage
 from app.schemas.intelligence import EngineResult
 from app.services.ai_evidence import MAX_CONTEXT_BYTES, collect
+from app.services.ai_manager import validate_result
 from app.services.ai_provider import (
     SYSTEM,
     AnthropicProvider,
@@ -292,6 +293,9 @@ def test_context_redacts_and_bounds_without_screenshots(client, ai_case):
     assert len(json.dumps(result, ensure_ascii=False).encode()) <= MAX_CONTEXT_BYTES
     assert len(result["issues"]) <= 20 and len(result["pages"]) <= 10
     assert result["omitted_issues"] > 190
+    assert {item["id"] for item in result["issues"]} == {
+        key for group in result["groups"] for key in group["evidence_ids"]
+    }
     text = json.dumps(result)
     assert (
         "data:image" not in text and ".png" not in text and "evidence_path" not in text
@@ -687,3 +691,51 @@ def test_cancel_before_background_task_starts_releases_slot(client, ai_case):
     with ai_case["factory"]() as session:
         row = session.get(AIAnalysis, identifier)
         assert row.status in {"cancelled", "completed"} and row.active_slot is None
+
+
+def test_complete_long_urls_are_preserved_in_context_and_code(client, database):
+    _, factory, _ = database
+    _, run = seed(factory, CASES[:1])
+    url = "http://blackbox-demo.invalid/" + "route/" * 140
+    with factory.begin() as session:
+        issue = session.scalar(select(Issue).where(Issue.run_id == run))
+        issue.affected_url = url
+    result = wait(client, create(client, run).json()["id"])
+    assert result["status"] == "completed"
+    assert result["evidence"]["issues"][0]["url"] == url
+    assert url.split(".invalid", 1)[1] in result["result"]["suggested_tests"][0]["code"]
+
+
+def test_missing_url_does_not_invent_a_test_path(client, database):
+    _, factory, _ = database
+    _, run = seed(factory, CASES[:1])
+    with factory.begin() as session:
+        session.scalar(
+            select(Issue).where(Issue.run_id == run)
+        ).affected_url = "file:///private"
+    result = wait(client, create(client, run).json()["id"])
+    assert result["status"] == "completed" and result["result"]["suggested_tests"] == []
+
+
+def test_template_uses_compatible_cited_issue_url(client, ai_case):
+    from app.services.ai_rules import render_tests
+
+    with ai_case["factory"]() as session:
+        evidence = collect(session, ai_case["run"], "local", False)
+    result = analyze_rules(evidence, 8)
+    js = next(issue for issue in evidence["issues"] if issue["type"] == "javascript")
+    http = next(issue for issue in evidence["issues"] if issue["type"] == "http")
+    js["url"], http["url"] = (
+        "http://blackbox-demo.invalid/js-path",
+        "http://blackbox-demo.invalid/http-path",
+    )
+    test = next(
+        test for test in result.suggested_tests if test.template == "http_status"
+    )
+    test.evidence_ids = [js["id"], http["id"]]
+    result = validate_result(result, evidence, 8, "")
+    rendered = render_tests(result, evidence)
+    code = next(
+        test.code for test in rendered.suggested_tests if test.template == "http_status"
+    )
+    assert 'BASE_URL + "/http-path"' in code and 'BASE_URL + "/js-path"' not in code

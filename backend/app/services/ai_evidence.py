@@ -60,7 +60,7 @@ def collect(
                 "severity": issue["severity"],
                 "title": title,
                 "message": message,
-                "url": safe_text(issue["url"], secret, 500),
+                "url": safe_text(issue["url"], secret, 2048),
                 "screenshot_page_id": issue["evidence_page_id"],
                 "quarantined": suspicious,
             }
@@ -68,7 +68,7 @@ def collect(
     pages = [
         {
             "id": "page:" + p["id"],
-            "url": safe_text(p["url"], secret, 500),
+            "url": safe_text(p["url"], secret, 2048),
             "status_code": p["status_code"],
             "load_time_ms": p["load_time_ms"],
             "screenshot_available": p["evidence_available"],
@@ -103,7 +103,7 @@ def collect(
     snapshot = {
         "run_id": run.id,
         "run_status": run.status.value,
-        "target_url": safe_text(document["run"]["target_url"], secret, 500),
+        "target_url": safe_text(document["run"]["target_url"], secret, 2048),
         "summary": {
             key: document["summary"][key]
             for key in (
@@ -160,7 +160,13 @@ def collect(
     # A hash entry per distinct issue is bounded but can still use the reserved space.
     while (
         len(json.dumps(snapshot, ensure_ascii=False).encode()) > MAX_CONTEXT_BYTES
-        and snapshot["groups"]
+        and snapshot["issues"]
     ):
-        snapshot["groups"].pop()
+        removed = snapshot["issues"].pop()["id"]
+        snapshot["omitted_issues"] += 1
+        for group in snapshot["groups"]:
+            if removed in group["evidence_ids"]:
+                group["evidence_ids"].remove(removed)
+                group["count"] -= 1
+        snapshot["groups"] = [group for group in snapshot["groups"] if group["count"]]
     return snapshot

@@ -49,6 +49,32 @@ GENERAL = (
     "No apliques cambios sin reproducir y aislar el comportamiento.",
     None,
 )
+TEMPLATE_KINDS = {
+    "http_status": {"http", "broken_link"},
+    "no_page_errors": {"javascript"},
+    "no_console_errors": {"console"},
+}
+
+
+def test_source(template: str, ids: list[str], issues: dict) -> dict | None:
+    for key in ids:
+        issue = issues.get(key)
+        if not issue or issue["type"] not in TEMPLATE_KINDS[template]:
+            continue
+        try:
+            parsed = urlsplit(issue["url"])
+            if (
+                parsed.scheme in {"http", "https"}
+                and parsed.hostname
+                and not any(
+                    marker in issue["url"]
+                    for marker in ("[REDACTADO]", "[correo oculto]", "[ruta omitida]")
+                )
+            ):
+                return issue
+        except ValueError:
+            continue
+    return None
 
 
 def analyze_rules(evidence: dict, max_findings: int) -> EngineResult:
@@ -71,7 +97,7 @@ def analyze_rules(evidence: dict, max_findings: int) -> EngineResult:
                 limitations=[limitation],
             )
         )
-        if template:
+        if template and test_source(template, ids, by_id):
             tests.append(
                 TestPlan(
                     template=template,
@@ -109,7 +135,11 @@ def render_tests(result: EngineResult, evidence: dict) -> StoredResult:
     issues = {issue["id"]: issue for issue in evidence["issues"]}
     output = result.model_dump()
     for index, plan in enumerate(output["suggested_tests"]):
-        issue = next(issues[key] for key in plan["evidence_ids"] if key in issues)
+        issue = test_source(plan["template"], plan["evidence_ids"], issues)
+        if issue is None:
+            raise ValueError(
+                "No hay un destino completo y compatible para la plantilla."
+            )
         path = urlsplit(issue["url"]).path or "/"
         # JSON string literals prevent evidence from injecting Python statements.
         literal = json.dumps(path, ensure_ascii=True)
