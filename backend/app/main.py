@@ -11,6 +11,7 @@ from starlette.responses import Response
 from app.api.routes import router
 from app.api.projects import router as projects_router
 from app.api.runs import router as runs_router
+from app.api.reporting import router as reporting_router
 from app.core.config import get_settings
 from app.core.database import build_engine, session_factory
 from app.repositories.runs import RunNotFound
@@ -40,7 +41,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="BLACKBOX AI",
     version="0.1.0",
-    description="Phase 3: real Playwright testing of the bundled controlled demo. Remote browsing disabled.",
+    description="Phase 4: offline reports, analytics and heuristic regression comparison. Remote browsing disabled.",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -66,6 +67,7 @@ app.include_router(router)
 app.include_router(projects_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api")
 app.include_router(runs_router)
+app.include_router(reporting_router)
 
 
 @app.exception_handler(RunNotFound)

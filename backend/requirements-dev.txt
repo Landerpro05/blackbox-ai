@@ -1,3 +1,4 @@
 -r requirements.txt
 pytest>=8.3,<10
 httpx2>=2.16,<3
+pypdf>=6,<7

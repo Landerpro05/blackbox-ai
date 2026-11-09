@@ -10,8 +10,10 @@ class EvidenceStore:
         # Canonical UUIDs only. No caller-controlled filenames or directory traversal.
         run = str(UUID(run_id))
         page = str(UUID(page_id))
-        target = (self.root / run / f"{page}.png").resolve()
-        if not target.is_relative_to(self.root):
+        expected = self.root / run / f"{page}.png"
+        target = expected.resolve()
+        # Also reject links/junctions into another run inside the evidence root.
+        if target != expected or not target.is_relative_to(self.root):
             raise ValueError("Evidencia no válida.")
         return target
 
