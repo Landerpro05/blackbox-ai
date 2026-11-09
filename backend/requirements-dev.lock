@@ -29,7 +29,7 @@ h11==0.16.0
 httpcore2==2.16.0
     # via httpx2
 httpx2==2.16.0
-    # via -r backend/requirements-dev.txt
+    # via -r backend/requirements.txt
 idna==3.20
     # via
     #   anyio

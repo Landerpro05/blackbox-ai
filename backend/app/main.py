@@ -5,19 +5,21 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
-from app.api.routes import router
+from app.api.intelligence import router as intelligence_router
 from app.api.projects import router as projects_router
-from app.api.runs import router as runs_router
 from app.api.reporting import router as reporting_router
+from app.api.routes import router
+from app.api.runs import router as runs_router
 from app.core.config import get_settings
 from app.core.database import build_engine, session_factory
 from app.repositories.runs import RunNotFound
+from app.services.ai_manager import AIManager
 from app.services.run_manager import DemoDisabled, RunBusy, RunManager
 from app.testing.policy import DestinationDenied
-from sqlalchemy.exc import SQLAlchemyError
 
 
 @asynccontextmanager
@@ -28,12 +30,18 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         application.state.session_factory, get_settings(), str(engine.url.database)
     )
     application.state.run_manager = manager
+    intelligence = AIManager(application.state.session_factory, get_settings())
+    application.state.ai_manager = intelligence
     try:
         await manager.start()
+        await intelligence.start()
         yield
     finally:
         try:
-            await manager.close()
+            try:
+                await intelligence.close()
+            finally:
+                await manager.close()
         finally:
             engine.dispose()
 
@@ -41,7 +49,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="BLACKBOX AI",
     version="0.1.0",
-    description="Phase 4: offline reports, analytics and heuristic regression comparison. Remote browsing disabled.",
+    description="Phase 5: evidence-based rules and optional consented LLM intelligence. Remote browsing disabled.",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -68,6 +76,7 @@ app.include_router(projects_router, prefix="/api/v1")
 app.include_router(projects_router, prefix="/api")
 app.include_router(runs_router)
 app.include_router(reporting_router)
+app.include_router(intelligence_router)
 
 
 @app.exception_handler(RunNotFound)

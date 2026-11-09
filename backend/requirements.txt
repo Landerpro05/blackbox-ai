@@ -6,3 +6,4 @@ pydantic-settings>=2.7,<3
 alembic>=1.14,<2
 playwright>=1.60,<2
 reportlab>=4.4,<5
+httpx2>=2.16,<3

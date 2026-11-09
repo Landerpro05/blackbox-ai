@@ -1,8 +1,8 @@
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from app.models import Project, Run
 from app.core.errors import RunBusy
+from app.models import AIAnalysis, Project, Run
 from app.schemas.projects import ProjectCreate, ProjectUpdate
 
 
@@ -64,3 +64,10 @@ class ProjectRepository:
             .limit(1)
         ):
             raise RunBusy("El proyecto tiene un análisis activo.")
+        if self.session.scalar(
+            select(AIAnalysis.id)
+            .join(Run)
+            .where(Run.project_id == project_id, AIAnalysis.active_slot == 1)
+            .limit(1)
+        ):
+            raise RunBusy("El proyecto tiene una interpretación activa.")
