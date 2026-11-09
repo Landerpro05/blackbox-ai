@@ -1,4 +1,4 @@
-# Arquitectura — fase 3
+# Arquitectura — fase 4
 
 ## Estructura definitiva
 
@@ -7,12 +7,12 @@ El workspace ya es la raíz del monorepositorio: no se añade otra carpeta `blac
 ```text
 backend/
   app/
-    api/             salud, dashboard, proyectos, ejecuciones y evidencias
+    api/             salud, dashboard, proyectos, ejecuciones, evidencias e informes
     core/            configuración, motor SQLite, sesiones y ámbito de workspace
     models/          Project, Run, Issue y enumeraciones
     repositories/    proyectos, resultados, progreso y agregaciones del dashboard
     schemas/         contratos de respuesta Pydantic
-    services/        coordinación de un análisis y bloqueo de proceso
+    services/        coordinación, bloqueo, informes, comparación y analítica
     testing/         Chromium, demo integrada, política y almacén de evidencias
     main.py          aplicación ASGI, recuperación y cierre
   alembic/versions/  historial de migraciones
@@ -102,6 +102,45 @@ La pantalla `/runs/{id}` muestra presupuesto recorrido, contadores, duración, c
 
 No existe autenticación multiusuario ni despliegue SaaS en esta fase. No expongas este entorno local a redes públicas. El acceso a documentación API es solo de desarrollo. `frontend/.env` es configuración pública y nunca debe contener secretos.
 
+## Informes, comparación y analítica
+
+`api/reporting.py` añade siete GET bajo `/api/v1`, reutilizando `get_session`, `get_workspace_access`, `scoped_run` y los modelos existentes. El servicio `services/reporting.py` construye una representación acotada del resultado persistido, redacta datos y ofrece renderizadores HTML/PDF/JSON/CSV. No modifica las ejecuciones, los hallazgos ni sus estados. Las descargas pasan por el ámbito tanto de `Run` como de `Project`; no basta con conocer un UUID. Los informes y comparaciones requieren ejecuciones finalizadas con `finished_at` registrado.
+
+### Consultas y límites
+
+- Resumen por ejecución: `COUNT`, `AVG`, agrupaciones de severidad/tipo y sumas condicionales para HTTP, JavaScript/consola y enlaces rotos. Estos últimos contadores no dependen del recorte de 50 tipos.
+- Informe: como máximo 200 incidencias y 20 páginas, orden estable por fecha e ID, textos de hasta 4000 caracteres (título 200, URL 2048). Los totales y las omisiones se obtienen mediante SQL; no se deducen del número de detalles incluidos.
+- Analítica de proyecto: subconsulta de IDs dentro del workspace, agregaciones SQL sobre sus incidencias/páginas y paginación de ejecuciones (20 por defecto, máximo 50). No se cargan relaciones ORM de todas las ejecuciones. Los agregados por ejecución se restringen a los IDs de esa página.
+- La regresión del proyecto corresponde a sus dos últimas ejecuciones finalizadas. Solo se cargan sus colecciones acotadas; no se recompara todo el histórico. Si no hay dos ejecuciones ordenables por fecha, se devuelve `null`.
+- Se reutilizan índices existentes: `projects.workspace_id`, `runs.project_id`, `runs.workspace_id`, `runs.created_at`, `issues.run_id` y `test_pages.test_run_id`. No se justifica añadir almacenamiento ni índices para esta consulta local acotada. No hay modificación de esquema; el head continúa en `c39d87a4e620` y `alembic check` comprueba su correspondencia.
+- HTML/PDF se generan bajo demanda, con un semáforo por proceso que permite una generación a la vez y rechaza contención con 409. Las rutas síncronas se ejecutan en el threadpool de FastAPI; no se bloquea el bucle asyncio del motor. No se crea una cola ni un servicio adicional.
+
+### Renderizado offline y privacidad
+
+HTML usa únicamente texto escapado, CSS incorporado y PNG en data URLs. No hay scripts, fuentes externas, enlaces activos de destino ni HTML aportado por una página. Incluye CSP restrictiva también dentro del archivo para conservar la protección al descargarlo. PDF usa ReportLab Platypus, tipografía Vera incluida, párrafos con marcado escapado, tablas, cabeceras y numeración. No utiliza Chromium ni interpreta el HTML descargable. La fuente soporta español; caracteres sin glifo se sustituyen por `?`, con aviso en portada.
+
+Las capturas opcionales se buscan desde IDs de páginas pertenecientes al mismo análisis y su nombre UUID exacto. `EvidenceStore.path` rechaza traversal, symlinks y junctions que resuelvan hacia otra ruta, incluso dentro del directorio de evidencias. Nunca se abre `Issue.evidence_path` como una ruta. Se comprueba tamaño antes y durante la lectura, se decodifica PNG de una sola imagen con Pillow, se exige como máximo 1920×1080 y se recodifica a RGB sin metadatos. Presupuestos: 4 capturas, 3 MB por archivo y 4 MB acumulados; HTML/PDF indican las omisiones. Una captura corrupta o ausente no impide exportar el texto.
+
+Los export no incluyen rutas internas, workspace, cookies, cabeceras ni el mensaje interno de error del servidor. Se redactan patrones conocidos de secretos, correos y rutas locales también en históricos. No hay un detector universal de secretos y no se aplica OCR a capturas: la interfaz las deja desmarcadas e indica revisarlas antes de compartir. Los informes fallidos/cancelados conservan una advertencia explícita de parcialidad.
+
+JSON tiene `schema_version=1`, datos de proyecto/ejecución, resumen, incidencias, páginas y omisiones; no incrusta archivos. CSV cita todas las celdas, utiliza UTF-8 con BOM y antepone apóstrofo a posibles fórmulas, incluso con espacios iniciales. Incluye ID/estado del análisis, total y omisiones en cada fila; sin hallazgos, una fila de metadatos conserva los ceros. Los filenames solo contienen UUID y extensión fija; las respuestas usan attachment, no-store, nosniff y un máximo de 12 MB para exportaciones. Las referencias de evidencia en JSON/CSV son IDs de página, no rutas de disco.
+
+### Equivalencia y cobertura
+
+Huella v1: SHA-256 de `[tipo, URL normalizada, título + descripción normalizados]`. Se elimina consulta/fragmento, se normalizan esquema/host/puerto predeterminado, espacios y mayúsculas del mensaje; UUID, fechas ISO y duraciones con unidades se sustituyen por marcadores. No se usan IDs de registro, severidad, fecha de creación ni métricas temporales. Se conservan rutas, códigos HTTP y números técnicos restantes. No hay un identificador técnico separado en el modelo actual: la información disponible procede del tipo y mensaje registrado.
+
+Los duplicados de una huella se agrupan. PERSISTENT aparece en ambos lados; NEW solo en destino. Una ausencia es RESOLVED únicamente si ambos estados son completed, destino y límites coinciden, no hay omisiones ni incidencias de timeout/navegación/presupuesto, no se ha alcanzado el techo de 200 hallazgos y el destino contiene una navegación registrada a la URL afectada sin bloqueo. Las demás ausencias son UNCONFIRMED. La comparación se marca parcial si falla alguna condición o quedan ausencias sin confirmar. Estas reglas son conservadoras y se aplican también a las tarjetas de la analítica.
+
+La resolución solo significa «no observado en esta revisita». Recorridos con distintos tiempos, mensajes modificados o URLs dinámicas pueden producir falsos positivos o negativos. NEW tampoco prueba que el defecto se haya introducido entre ejecuciones. No se modifica `Issue.status`. Las cifras de regresión cuentan grupos; las gráficas históricas y totales cuentan registros persistidos, incluidas ejecuciones parciales y hallazgos informativos.
+
+Los registros antiguos sin `Run.target_url` muestran «Destino no registrado». No se atribuye al análisis histórico la URL actual del proyecto, que puede haberse editado. La falta de ese destino impide afirmar resoluciones en comparaciones.
+
+### Interfaz
+
+`ReportPanel` amplía `RunDetail`; `ComparisonPanel` se comparte entre `/runs` y `/reports`; `ProjectAnalytics` amplía el detalle de proyecto. `services/reporting.ts` centraliza llamadas, etiquetas y descargas; estas reutilizan el mismo manejo HTTP de `services/api.ts`, con timeout de 60 s para generar archivos y 10 s para consultas habituales. La descarga usa blobs y revoca sus URLs temporales.
+
+Las listas de proyectos y ejecuciones para comparar son paginadas, conservan selecciones de otras páginas y rechazan el mismo análisis en ambos lados. Los datos seleccionados se vuelven a validar en el servidor. Recharts se carga con importación dinámica, compartiendo su chunk entre dashboard y analítica. Las vistas incluyen errores, reintentos, ausencia de datos y filtros. No hay HTML de resultados insertado mediante `dangerouslySetInnerHTML`.
+
 ## Referencias técnicas
 
 - [FastAPI: CORS](https://fastapi.tiangolo.com/tutorial/cors/) para configurar orígenes explícitos.
@@ -110,3 +149,5 @@ No existe autenticación multiusuario ni despliegue SaaS en esta fase. No expong
 - [FastAPI: actualizaciones parciales](https://fastapi.tiangolo.com/tutorial/body-updates/) para conservar campos omitidos en PATCH mediante `exclude_unset`.
 - [Playwright: interceptación y Service Workers](https://playwright.dev/python/docs/network) para el control de solicitudes del contexto.
 - [Playwright: cierre del navegador](https://playwright.dev/python/docs/api/class-browser#browser-close) para el ciclo de vida de los recursos.
+- [ReportLab: Platypus](https://docs.reportlab.com/reportlab/userguide/ch5_platypus/) y [párrafos](https://docs.reportlab.com/reportlab/userguide/ch6_paragraphs/) para PDF sin navegador y tratamiento seguro del marcado.
+- [Python CSV](https://docs.python.org/3.12/library/csv.html) para serialización y escapes del formato.

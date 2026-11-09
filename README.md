@@ -1,8 +1,8 @@
 # BLACKBOX AI
 
-Plataforma de testing web autorizado. **Fase 3: motor Playwright con demostración controlada.** Backend FastAPI y frontend React independientes, SQLite persistente, CRUD, ejecuciones en segundo plano, cancelación y resultados con capturas.
+Plataforma de testing web autorizado. **Fase 4: informes, analítica y comparación de regresiones.** Backend FastAPI y frontend React independientes, SQLite persistente, CRUD, motor Playwright con demostración controlada, cancelación, capturas y exportaciones reales.
 
-Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-ai), rama `main`. Los commits se redactan en castellano y agrupan cambios relacionados. Los entornos virtuales, dependencias instaladas, secretos, bases de datos y evidencias locales quedan fuera del control de versiones.
+Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-ai). La fase 4 se desarrolla en `feature/phase-4-reporting`, sin merge automático a `main`. Los commits se redactan en castellano y agrupan cambios relacionados. Los entornos virtuales, dependencias instaladas, secretos, bases de datos y evidencias locales quedan fuera del control de versiones.
 
 ## Alcance de esta entrega
 
@@ -16,8 +16,9 @@ Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-a
 - Validación del backend, actualización de vistas tras guardar o eliminar y ámbito de workspace asignado por el servidor.
 - Análisis real de la demo integrada mediante Chromium headless, con errores HTTP, JavaScript, consola, enlaces rotos y revisión pasiva de etiquetas de formularios.
 - Historial, progreso, filtros por severidad, tiempos de navegación, evidencias y cancelación.
+- Informes HTML autónomos y PDF, exportaciones JSON/CSV, comparación de ejecuciones y gráficos históricos con datos de SQLite.
 
-**La navegación remota está deshabilitada.** Se ha aplicado la alternativa de demostración controlada prevista en el encargo. Solo se analiza contenido integrado del proyecto, con activación del servidor y autorización expresa por ejecución. Guardar una URL no provoca navegación. Los informes HTML descargables quedan para la fase 4; la IA, para la 5. No hay autenticación multiusuario ni despliegue público.
+**La navegación remota está deshabilitada.** Solo se analiza contenido integrado del proyecto, con activación del servidor y autorización expresa por ejecución. Guardar una URL no provoca navegación. Los informes se generan offline con los resultados guardados. La fase 5 no se ha iniciado. No hay IA generativa, autenticación multiusuario ni despliegue público.
 
 ## Estructura
 
@@ -31,7 +32,7 @@ ProyectoTocho/
 ```
 
 Consulta [la arquitectura](docs/architecture.md) para conocer límites, semántica de contadores y controles pendientes.
-Los registros de [fase 1](docs/verification-phase-1.md), [fase 2](docs/verification-phase-2.md) y [fase 3](docs/verification-phase-3.md) detallan los resultados comprobados. La fase 3 incluye una prueba de navegador del flujo completo y revisión de capturas de escritorio/móvil.
+Los registros de [fase 1](docs/verification-phase-1.md), [fase 2](docs/verification-phase-2.md), [fase 3](docs/verification-phase-3.md) y [fase 4](docs/verification-phase-4.md) detallan los resultados comprobados, incluidas pruebas reales de navegador y revisión visual de PDF y pantallas.
 
 ## Windows · instalación desde cero
 
@@ -237,7 +238,7 @@ npm.cmd run build
 npm.cmd run test:integration
 ```
 
-`pytest` aplica las migraciones a archivos SQLite temporales: **118 casos correctos** en la verificación de esta entrega, conservando los 67 de fases anteriores. Incluye motor real, límites, cancelación, fallos, cierre, aislamiento, solicitudes bloqueadas, migraciones y el flujo React con Chromium. No modifica `backend/data/blackbox.db`. La prueba de React necesita Node y las dependencias del frontend instaladas. Para ejecutar solo los casos sin navegador usa `python -m pytest -m "not browser"` con el Python del entorno virtual.
+`pytest` aplica las migraciones a archivos SQLite temporales. Conserva los 118 casos de fase 3 y añade pruebas de informes, comparación, agregaciones y descargas desde React. Los resultados de esta entrega están en [la verificación de fase 4](docs/verification-phase-4.md). No modifica `backend/data/blackbox.db`. La prueba de React necesita Node y las dependencias del frontend instaladas. Para ejecutar solo los casos sin navegador usa `python -m pytest -m "not browser"` con el Python del entorno virtual.
 
 `npm run build` comprueba TypeScript y genera `frontend/dist/`. `npm run test:integration` conserva la comprobación del cliente TypeScript del CRUD contra FastAPI temporal. La prueba `backend/tests/test_browser_ui.py`, ejecutada con pytest, añade los clics reales de creación de demo, inicio, resultados, filtros, evidencias, menú móvil y cancelación. Los procesos y datos de prueba son temporales; las capturas de QA quedan en `.tools/qa/`, ignoradas por Git.
 
@@ -286,4 +287,34 @@ Los mensajes almacenados se redactan (contraseñas/tokens, Bearer, consultas URL
 
 Se usa un solo worker y un solo Chromium de análisis. No se han añadido Celery, Redis, contenedores, librerías LLM, DuckDB ni infraestructura distribuida. No hay análisis contra sitios públicos en las pruebas.
 
-**La fase 4 requiere tu confirmación. No se ha iniciado ni se ha integrado IA.**
+## Informes y comparación de la fase 4
+
+1. Finaliza dos análisis de un mismo proyecto de demostración.
+2. Abre cada ejecución y consulta el resumen por severidad. Descarga HTML, PDF, JSON o CSV desde «Informe de ejecución».
+3. Las capturas están desmarcadas por defecto en la interfaz. Puedes incluirlas en HTML/PDF; revisa su contenido antes de compartirlas.
+4. En el proyecto, «Evolución de calidad» muestra totales históricos, navegación media, severidades/tipos, páginas de hasta 20 ejecuciones y enlaces a sus informes.
+5. En «Informes» o «Análisis», selecciona proyecto, base anterior y destino reciente. Pulsa «Comparar ejecuciones» y filtra NEW, RESOLVED, PERSISTENT o UNCONFIRMED.
+
+| Endpoint GET bajo `/api/v1` | Resultado |
+| --- | --- |
+| `/runs/{id}/report` | Documento JSON estructurado para el resumen y sus detalles |
+| `/runs/{id}/report/html?include_evidence=true` | HTML autónomo, sin JavaScript ni recursos remotos |
+| `/runs/{id}/report/pdf?include_evidence=true` | PDF A4 con portada, tablas, cabeceras y páginas; ReportLab, sin Chromium |
+| `/runs/{id}/export/json` | JSON UTF-8, versión de esquema 1; sin archivos ni rutas locales |
+| `/runs/{id}/export/csv` | CSV de incidencias con metadatos y totales, UTF-8 con BOM, fórmulas neutralizadas |
+| `/projects/{id}/analytics?limit=20&offset=0` | Agregaciones SQL y ejecuciones paginadas, máximo 50 por petición |
+| `/projects/{id}/compare?base_run_id=...&target_run_id=...` | Grupos de incidencias comparados sin modificar el histórico |
+
+Los informes requieren una ejecución finalizada (completada, fallida o cancelada). Las dos últimas llevan aviso de parcialidad. Una ejecución activa devuelve 409; un recurso inexistente o de otro workspace, 404; UUID/parámetros inválidos, 422; un export excesivo, 413. Solo se genera un HTML/PDF a la vez por proceso; otra petición recibe 409 para reintentar sin crear una cola.
+
+La huella SHA-256 usa tipo, URL normalizada sin consulta/fragmento y título/descripción redactados. Normaliza espacios, mayúsculas del mensaje y host, puertos predeterminados, UUID, fechas ISO y duraciones con unidades. Conserva códigos HTTP y otros números con significado técnico. No utiliza IDs de incidencia/ejecución, severidad, tiempos de navegación ni fechas del registro. Los duplicados se agrupan; las cifras comparadas son grupos, mientras la analítica cuenta registros.
+
+**La comparación es heurística.** Cambiar un mensaje, ruta o tipo puede separar un mismo fallo; mensajes parecidos pueden agrupar fallos distintos. NEW significa observado solo en destino, aunque la base pudo no cubrirlo. RESOLVED significa ausencia observada en una URL revisitada bajo las mismas condiciones, sin garantizar corrección. Se exige que ambas ejecuciones estén completadas, tengan igual destino y límites, sin truncamiento ni problemas de navegación/presupuesto; el destino debe registrar esa URL sin navegación bloqueada. Las demás ausencias son UNCONFIRMED. No se cambia `Issue.status`.
+
+Los informes incluyen como máximo 200 incidencias, 20 páginas y 4 capturas de 1920×1080, 3 MB por PNG y 4 MB acumulados, con recodificación y eliminación de metadatos. El máximo de export es 12 MB. Se informan omisiones y los totales agregados conservan todos los registros. El desglose por tipos se limita a 50 grupos; los contadores HTTP/JS/enlaces se calculan aparte. JSON/CSV incluyen referencias a páginas, sin bytes de imágenes. El CSV vacío conserva una fila de metadatos con totales cero; no inventa una incidencia.
+
+Se escapa todo texto al generar HTML y marcado PDF. La CSP del HTML impide contenido activo y recursos externos; solo se incrustan PNG validados del mismo análisis. Las rutas UUID rechazan traversal y enlaces/junctions a otros archivos o ejecuciones. Se redactan credenciales conocidas, consultas URL, correos y rutas locales en datos históricos exportados; la redacción es heurística y las capturas no tienen OCR ni detección universal de secretos. El PDF utiliza la fuente libre Vera incluida en ReportLab; caracteres no soportados se representan con `?`. Consulta [ReportLab Platypus](https://docs.reportlab.com/reportlab/userguide/ch5_platypus/) y [CSV de Python](https://docs.python.org/3.12/library/csv.html).
+
+No hay cambios de esquema ni nuevos índices: se reutilizan los índices por workspace, proyecto, ejecución y fechas. Alembic sigue siendo la autoridad del esquema. ReportLab y sus dependencias de imagen se instalan con los locks habituales; `pypdf` solo se usa en pruebas. Poppler se utilizó como herramienta local de revisión, no es dependencia de la aplicación.
+
+**La fase 5 requiere tu confirmación. No se ha iniciado ni se ha integrado IA.**
