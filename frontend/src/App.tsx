@@ -23,6 +23,7 @@ export default function App() {
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="projects/:id/edit" element={<EditProject />} />
           <Route path="runs" element={<Analyses />} />
+          <Route path="reports" element={<Analyses reports />} />
           <Route path="runs/:id" element={<RunDetail />} />
           <Route
             path="*"

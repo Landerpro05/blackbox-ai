@@ -248,3 +248,171 @@ def test_react_start_results_filters_screenshots_mobile_and_cancellation(
             assert not blocked, blocked
         finally:
             browser.close()
+
+
+@pytest.mark.browser
+def test_phase4_downloads_analytics_comparison_and_offline_html(local_application):
+    from playwright.sync_api import sync_playwright, expect
+    from pypdf import PdfReader
+
+    ui_url, api_url = local_application
+    artifacts = BACKEND_ROOT.parent / ".tools" / "qa"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    errors, blocked = [], []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, args=["--disable-gpu"])
+        try:
+            context = browser.new_context(
+                viewport={"width": 1440, "height": 1080}, accept_downloads=True
+            )
+
+            def own_servers_only(route):
+                if route.request.url.startswith((ui_url + "/", api_url + "/")):
+                    route.continue_()
+                else:
+                    blocked.append(route.request.url)
+                    route.abort()
+
+            context.route("**/*", own_servers_only)
+            page = context.new_page()
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(ui_url + "/projects")
+            page.get_by_role(
+                "button", name="Crear proyecto de demostración", exact=True
+            ).click()
+            expect(
+                page.get_by_role(
+                    "heading", name="Demostración BLACKBOX AI", exact=False
+                )
+            ).to_be_visible()
+            project_url = page.url
+            project_id = project_url.rsplit("/", 1)[-1]
+            run_urls = []
+            for _ in range(2):
+                page.get_by_label("Páginas máximas", exact=True).fill("1")
+                page.get_by_label("Autorizo analizar únicamente").check()
+                page.get_by_role("button", name="Iniciar análisis", exact=True).click()
+                page.wait_for_url(re.compile(r"/runs/[0-9a-f-]+$"))
+                expect(page.locator(".run-progress .status-pill")).to_have_text(
+                    "Completado", timeout=30000
+                )
+                run_urls.append(page.url)
+                expect(
+                    page.get_by_role("button", name="Descargar PDF", exact=True)
+                ).to_be_visible()
+                if len(run_urls) == 1:
+                    page.goto(project_url)
+
+            panel = page.get_by_role("region", name="Informe de ejecución", exact=True)
+            expect(panel.locator(".severity-summary > div")).to_have_count(5)
+            page.get_by_label("Incluir capturas en HTML y PDF").check()
+            for extension in ("html", "pdf", "json", "csv"):
+                with page.expect_download() as download_info:
+                    page.get_by_role(
+                        "button", name=f"Descargar {extension.upper()}", exact=True
+                    ).click()
+                download = download_info.value
+                assert download.failure() is None
+                path = artifacts / f"phase4-report.{extension}"
+                download.save_as(path)
+                assert path.stat().st_size > 0
+                assert download.suggested_filename.endswith("." + extension)
+            pdf = PdfReader(artifacts / "phase4-report.pdf")
+            assert len(pdf.pages) >= 3
+            assert any("Excepción JavaScript" in p.extract_text() for p in pdf.pages)
+            exported = json.loads((artifacts / "phase4-report.json").read_text("utf-8"))
+            assert exported["summary"]["pages"] == 1
+            assert exported["summary"]["issues"] > 0
+            assert "demo-secret-123" not in (
+                artifacts / "phase4-report.html"
+            ).read_text("utf-8")
+            page.screenshot(path=artifacts / "phase4-run-desktop.png", full_page=True)
+
+            page.goto(project_url)
+            expect(
+                page.get_by_role(
+                    "img",
+                    name="Evolución real de incidencias y navegación por ejecución",
+                )
+            ).to_be_visible()
+            expect(page.locator(".project-analytics .report-facts")).to_contain_text(
+                "Ejecuciones2"
+            )
+            page.locator(".project-analytics").scroll_into_view_if_needed()
+            page.screenshot(path=artifacts / "phase4-analytics-desktop.png")
+            page.get_by_role(
+                "link", name="Comparar ejecuciones del proyecto", exact=False
+            ).click()
+            expect(page.get_by_label("Proyecto para comparar")).to_have_value(
+                project_id
+            )
+            page.get_by_role("button", name="Comparar ejecuciones", exact=True).click()
+            expect(
+                page.get_by_role(
+                    "heading", name="Resultado de la comparación", exact=True
+                )
+            ).to_be_visible()
+            expect(page.locator(".comparison-issue")).to_have_count(
+                exported["summary"]["issues"]
+            )
+            page.get_by_label("Clasificación", exact=True).select_option("NEW")
+            expect(
+                page.get_by_text("Sin incidencias en esta clasificación.", exact=True)
+            ).to_be_visible()
+            page.get_by_label("Clasificación", exact=True).select_option("PERSISTENT")
+            expect(page.locator(".comparison-issue")).to_have_count(
+                exported["summary"]["issues"]
+            )
+            page.screenshot(
+                path=artifacts / "phase4-comparison-desktop.png", full_page=True
+            )
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.wait_for_function(
+                "document.querySelector('.sidebar').getBoundingClientRect().right <= 0"
+            )
+            assert page.evaluate(
+                "document.documentElement.scrollWidth <= window.innerWidth"
+            )
+            page.screenshot(
+                path=artifacts / "phase4-comparison-mobile.png", full_page=True
+            )
+            page.goto(run_urls[1])
+            expect(
+                page.get_by_role("button", name="Descargar PDF", exact=True)
+            ).to_be_visible()
+            assert page.evaluate(
+                "document.documentElement.scrollWidth <= window.innerWidth"
+            )
+            page.screenshot(path=artifacts / "phase4-run-mobile.png", full_page=True)
+
+            # Open the actual downloaded HTML locally with every HTTP request blocked.
+            offline = browser.new_context(offline=True)
+            offline_page = offline.new_page()
+            external_requests = []
+            offline_page.on(
+                "request",
+                lambda request: (
+                    external_requests.append(request.url)
+                    if request.url.startswith(("http:", "https:"))
+                    else None
+                ),
+            )
+            offline_page.goto((artifacts / "phase4-report.html").as_uri())
+            expect(
+                offline_page.get_by_role(
+                    "heading", name="Resumen ejecutivo", exact=True
+                )
+            ).to_be_visible()
+            expect(offline_page.locator("img")).to_have_count(1)
+            expect(offline_page.locator("img")).to_have_js_property(
+                "naturalWidth", 1280
+            )
+            assert not external_requests
+            offline_page.screenshot(
+                path=artifacts / "phase4-offline-html.png", full_page=True
+            )
+            offline.close()
+            assert not errors, errors
+            assert not blocked, blocked
+        finally:
+            browser.close()

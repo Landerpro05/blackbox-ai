@@ -16,17 +16,12 @@ import { usePollingResource } from "../hooks/usePollingResource";
 import { activeRun, evidenceUrl, runsApi, runLabels } from "../services/runs";
 import { formatDate } from "../services/format";
 import { EmptyState } from "../components/EmptyState";
+import { ReportPanel } from "../components/ReportPanel";
+import { severityLabels } from "../services/reporting";
 import { ResourceError, ResourceLoading } from "../components/ResourceFeedback";
 import type { RunDetailData, TestIssue } from "../types/api";
 
 const shouldPoll = (data: RunDetailData) => activeRun(data.run);
-const severityLabels = {
-  info: "Informativa",
-  low: "Baja",
-  medium: "Media",
-  high: "Alta",
-  critical: "Crítica",
-};
 
 function RunResults({
   data,
@@ -170,6 +165,7 @@ function RunResults({
           <strong className="metric-value">{run.request_count}</strong>
         </div>
       </div>
+      {!active && <ReportPanel key={run.id} runId={run.id} />}
       <section className="panel run-issues">
         <div className="panel-heading">
           <div>

@@ -15,12 +15,13 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(
+export async function requestResponse(
   path: string,
   options: RequestInit = {},
-): Promise<T> {
+  timeoutMs = 10_000,
+): Promise<Response> {
   const signal = options.signal;
-  const timeout = AbortSignal.timeout(10_000);
+  const timeout = AbortSignal.timeout(timeoutMs);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -69,12 +70,11 @@ export async function request<T>(
               : "No se pudo completar la operación. Inténtalo de nuevo.");
       throw new ApiError(message, response.status, fields);
     }
-    if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
+    return response;
   } catch (error) {
     if (combined.aborted && !signal?.aborted)
       throw new Error(
-        "La API no ha respondido en 10 segundos. Comprueba que FastAPI está en ejecución.",
+        `La API no ha respondido en ${timeoutMs / 1000} segundos. Comprueba que FastAPI está en ejecución.`,
       );
     if (error instanceof TypeError)
       throw new Error(
@@ -82,6 +82,15 @@ export async function request<T>(
       );
     throw error;
   }
+}
+
+export async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const response = await requestResponse(path, options);
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
 }
 
 export async function fetchOverview(signal: AbortSignal) {

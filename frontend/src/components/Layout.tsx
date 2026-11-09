@@ -72,10 +72,10 @@ export function Layout() {
             <Activity size={18} />
             Análisis
           </NavLink>
-          <span className="nav-upcoming" aria-disabled="true">
+          <NavLink to="/reports">
             <FileBarChart2 size={18} />
-            Informes<small>Fase 4</small>
-          </span>
+            Informes
+          </NavLink>
           <p className="nav-label second-label">WORKSPACE</p>
           <NavLink to="/settings">
             <Settings2 size={18} />
@@ -100,7 +100,7 @@ export function Layout() {
           </a>
           <div className="sidebar-version">
             <span className="tiny-dot" />
-            v0.1.0<span>Fase 3 · Motor de testing</span>
+            v0.1.0<span>Fase 4 · Informes y analítica</span>
           </div>
         </div>
       </aside>
@@ -118,13 +118,15 @@ export function Layout() {
             <span>Workspace</span>
             <ChevronRight size={14} />
             <strong>
-              {pathname.startsWith("/runs")
-                ? "Análisis"
-                : pathname.startsWith("/projects")
-                  ? "Proyectos"
-                  : pathname === "/settings"
-                    ? "Configuración"
-                    : "Dashboard"}
+              {pathname.startsWith("/reports")
+                ? "Informes"
+                : pathname.startsWith("/runs")
+                  ? "Análisis"
+                  : pathname.startsWith("/projects")
+                    ? "Proyectos"
+                    : pathname === "/settings"
+                      ? "Configuración"
+                      : "Dashboard"}
             </strong>
           </div>
           <div className="topbar-right">

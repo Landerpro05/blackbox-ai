@@ -17,6 +17,7 @@ import { ResourceError, ResourceLoading } from "../components/ResourceFeedback";
 import { DeleteProjectDialog } from "../components/DeleteProjectDialog";
 import { RunStartPanel } from "../components/RunStartPanel";
 import { RunHistory } from "../components/RunHistory";
+import { ProjectAnalytics } from "../components/ProjectAnalytics";
 
 export function ProjectDetail() {
   const { id = "" } = useParams();
@@ -151,6 +152,7 @@ export function ProjectDetail() {
             </section>
           </div>
           <RunStartPanel project={state.data} />
+          <ProjectAnalytics key={state.data.id} projectId={state.data.id} />
           <RunHistory projectId={state.data.id} />
           {deleting && (
             <DeleteProjectDialog
