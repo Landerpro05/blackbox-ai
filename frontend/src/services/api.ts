@@ -56,7 +56,7 @@ export async function requestResponse(
         }
       }
       const safeDetail =
-        typeof detail === "string" && [403, 404, 409].includes(response.status)
+        typeof detail === "string" && [403, 404, 409, 429].includes(response.status)
           ? detail
           : null;
       const message =

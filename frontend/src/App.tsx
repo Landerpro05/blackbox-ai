@@ -7,6 +7,7 @@ import { NewProject, EditProject } from "./pages/ProjectEditor";
 import { ProjectDetail } from "./pages/ProjectDetail";
 import { RunDetail } from "./pages/RunDetail";
 import { Analyses } from "./pages/Analyses";
+import { AIAnalysisDetail } from "./pages/AIAnalysisDetail";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="runs" element={<Analyses />} />
           <Route path="reports" element={<Analyses reports />} />
           <Route path="runs/:id" element={<RunDetail />} />
+          <Route path="ai-analyses/:id" element={<AIAnalysisDetail />} />
           <Route
             path="*"
             element={

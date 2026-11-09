@@ -52,7 +52,7 @@ export function Settings() {
               <ShieldCheck size={18} />
               Alcance actual
             </h2>
-            <p>Fase 3 · Motor de testing controlado</p>
+            <p>Fase 5 · AI Intelligence</p>
           </div>
         </div>
         <div className="settings-body">
@@ -65,8 +65,11 @@ export function Settings() {
             Registrar o editar un proyecto no provoca navegación a su URL. El
             motor Playwright solo admite la demostración integrada, requiere
             activación en el servidor y autorización por ejecución. La
-            navegación remota está deshabilitada. La integración de IA se
-            abordará en la fase 5.
+            navegación remota está deshabilitada. Los resultados pueden
+            interpretarse con reglas locales o con un LLM externo configurado en
+            el backend. El modo externo requiere confirmar el proveedor, modelo
+            y envío de evidencias redactadas. Los tests propuestos nunca se
+            ejecutan automáticamente.
           </p>
           <p>
             Este entorno local aún no dispone de autenticación. Usa los

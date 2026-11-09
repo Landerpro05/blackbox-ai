@@ -80,6 +80,9 @@ def local_application(tmp_path, monkeypatch):
         "BLACKBOX_DATABASE_URL": f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
         "BLACKBOX_EVIDENCE_DIR": str(tmp_path / "evidence"),
         "BLACKBOX_DEMO_TESTING_ENABLED": "true",
+        "BLACKBOX_AI_PROVIDER": "disabled",
+        "BLACKBOX_AI_API_KEY": "",
+        "BLACKBOX_AI_MODEL": "",
         "BLACKBOX_CORS_ORIGINS": json.dumps([ui_url]),
         "VITE_API_BASE_URL": f"{api_url}/api/v1",
     }
@@ -412,6 +415,189 @@ def test_phase4_downloads_analytics_comparison_and_offline_html(local_applicatio
                 path=artifacts / "phase4-offline-html.png", full_page=True
             )
             offline.close()
+            assert not errors, errors
+            assert not blocked, blocked
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_phase5_rules_persistence_copy_and_external_confirmation(local_application):
+    from playwright.sync_api import sync_playwright, expect
+
+    ui_url, api_url = local_application
+    artifacts = BACKEND_ROOT.parent / ".tools" / "qa"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    errors, blocked = [], []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, args=["--disable-gpu"])
+        try:
+            context = browser.new_context(viewport={"width": 1440, "height": 1080})
+            context.grant_permissions(
+                ["clipboard-read", "clipboard-write"], origin=ui_url
+            )
+
+            def own_servers_only(route):
+                if route.request.url.startswith((ui_url + "/", api_url + "/")):
+                    route.continue_()
+                else:
+                    blocked.append(route.request.url)
+                    route.abort()
+
+            context.route("**/*", own_servers_only)
+            page = context.new_page()
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(ui_url + "/projects")
+            page.get_by_role(
+                "button", name="Crear proyecto de demostración", exact=True
+            ).click()
+            page.get_by_label("Páginas máximas", exact=True).fill("1")
+            page.get_by_label("Autorizo analizar únicamente").check()
+            page.get_by_role("button", name="Iniciar análisis", exact=True).click()
+            page.wait_for_url(re.compile(r"/runs/[0-9a-f-]+$"))
+            run_url = page.url
+            expect(page.locator(".run-progress .status-pill")).to_have_text(
+                "Completado", timeout=30000
+            )
+            page.get_by_role("button", name="Analizar con IA", exact=True).click()
+            dialog = page.get_by_role("dialog", name="Analizar incidencias", exact=True)
+            expect(dialog).to_be_visible()
+            expect(dialog.get_by_label("Modo de análisis", exact=True)).to_have_value(
+                "rules"
+            )
+            expect(
+                dialog.get_by_text("LLM externo sin configurar.", exact=False)
+            ).to_be_visible()
+            dialog.get_by_role(
+                "button", name="Iniciar interpretación", exact=True
+            ).click()
+            panel = page.get_by_role("region", name="AI Intelligence", exact=True)
+            expect(panel.locator(".ai-state-row .status-pill")).to_have_text(
+                "Completado", timeout=15000
+            )
+            expect(
+                panel.get_by_role(
+                    "heading", name="Resumen basado en reglas", exact=True
+                )
+            ).to_be_visible()
+            expect(panel.locator(".ai-finding")).to_have_count(2)
+            expect(panel.locator(".ai-test")).to_have_count(2)
+            assert "synthetic-private" not in panel.inner_text()
+            first_code = panel.locator(".ai-code").first.inner_text()
+            assert "REEMPLAZA_POR_UN_ENTORNO_AUTORIZADO" in first_code
+            panel.get_by_role("button", name="Copiar código", exact=True).first.click()
+            expect(
+                panel.get_by_role("button", name="Copiado", exact=True)
+            ).to_be_visible()
+            assert (
+                page.evaluate("navigator.clipboard.readText()").replace("\r\n", "\n")
+                == first_code
+            )
+            panel.locator(".ai-finding .ai-citations a").first.click()
+            expect(panel.locator(".ai-evidence-list")).to_be_visible()
+            panel.scroll_into_view_if_needed()
+            page.screenshot(path=artifacts / "phase5-rules-desktop.png", full_page=True)
+            panel.locator(".ai-finding").first.screenshot(
+                path=artifacts / "phase5-finding-desktop.png"
+            )
+            panel.locator(".ai-test").first.screenshot(
+                path=artifacts / "phase5-test-desktop.png"
+            )
+            detail_link = panel.get_by_role(
+                "link", name="Abrir interpretación", exact=False
+            )
+            detail_url = detail_link.get_attribute("href")
+            page.goto(ui_url + detail_url)
+            expect(
+                page.get_by_role(
+                    "heading", name="Interpretación de resultados", exact=False
+                )
+            ).to_be_visible()
+            expect(
+                page.get_by_role("heading", name="Resumen basado en reglas", exact=True)
+            ).to_be_visible()
+            page.reload()
+            expect(page.locator(".ai-test")).to_have_count(2)
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.wait_for_function(
+                "document.querySelector('.sidebar').getBoundingClientRect().right <= 0"
+            )
+            assert page.evaluate(
+                "document.documentElement.scrollWidth <= window.innerWidth"
+            )
+            page.screenshot(path=artifacts / "phase5-rules-mobile.png", full_page=True)
+            page.locator(".ai-finding").first.screenshot(
+                path=artifacts / "phase5-finding-mobile.png"
+            )
+
+            # Only the capabilities/failed-submit UI is simulated. No LLM request leaves QA.
+            capabilities = page.request.get(api_url + "/api/v1/ai/capabilities").json()
+            capabilities.update(
+                llm_enabled=True, provider="anthropic", model="fixture-model"
+            )
+            page.route(
+                "**/api/v1/ai/capabilities",
+                lambda route: route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps(capabilities),
+                ),
+            )
+            captured = []
+
+            def reject_external(route):
+                if route.request.method == "POST":
+                    captured.append(route.request.post_data_json)
+                    route.fulfill(
+                        status=503,
+                        content_type="application/json",
+                        body=json.dumps({"detail": "Proveedor simulado no disponible"}),
+                    )
+                else:
+                    route.continue_()
+
+            page.route("**/api/v1/runs/*/ai-analysis", reject_external)
+            page.goto(run_url)
+            page.get_by_role("button", name="Analizar con IA", exact=True).click()
+            dialog = page.get_by_role("dialog", name="Analizar incidencias", exact=True)
+            dialog.get_by_label("Modo de análisis", exact=True).select_option("llm")
+            expect(dialog.get_by_text("fixture-model", exact=False)).to_be_visible()
+            expect(
+                dialog.get_by_role("button", name="Iniciar interpretación", exact=True)
+            ).to_be_disabled()
+            assert not captured
+            dialog.get_by_label(
+                "Autorizo enviar estas evidencias redactadas", exact=False
+            ).check()
+            expect(
+                dialog.get_by_role("button", name="Iniciar interpretación", exact=True)
+            ).to_be_enabled()
+            page.screenshot(
+                path=artifacts / "phase5-consent-mobile.png", full_page=True
+            )
+            dialog.screenshot(path=artifacts / "phase5-consent-dialog.png")
+            dialog.get_by_role(
+                "button", name="Iniciar interpretación", exact=True
+            ).click()
+            expect(dialog.get_by_role("alert")).to_contain_text(
+                "El servicio no está disponible"
+            )
+            assert captured == [
+                {
+                    "mode": "llm",
+                    "authorize_external": True,
+                    "max_findings": 5,
+                    "include_history": True,
+                    "consent_provider": "anthropic",
+                    "consent_model": "fixture-model",
+                }
+            ]
+            dialog.get_by_role("button", name="Cancelar", exact=True).click()
+            expect(
+                panel.get_by_role(
+                    "heading", name="Resumen basado en reglas", exact=True
+                )
+            ).to_be_visible()
             assert not errors, errors
             assert not blocked, blocked
         finally:

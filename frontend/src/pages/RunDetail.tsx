@@ -17,6 +17,7 @@ import { activeRun, evidenceUrl, runsApi, runLabels } from "../services/runs";
 import { formatDate } from "../services/format";
 import { EmptyState } from "../components/EmptyState";
 import { ReportPanel } from "../components/ReportPanel";
+import { AIIntelligencePanel } from "../components/AIIntelligencePanel";
 import { severityLabels } from "../services/reporting";
 import { ResourceError, ResourceLoading } from "../components/ResourceFeedback";
 import type { RunDetailData, TestIssue } from "../types/api";
@@ -166,6 +167,7 @@ function RunResults({
         </div>
       </div>
       {!active && <ReportPanel key={run.id} runId={run.id} />}
+      {!active && <AIIntelligencePanel key={`ai-${run.id}`} runId={run.id} />}
       <section className="panel run-issues">
         <div className="panel-heading">
           <div>
@@ -303,7 +305,7 @@ function RunResults({
             <div>
               <dt>Modo de red</dt>
               <dd>
-                Solo demo integrada. Destinos remotos deshabilitados. Sin IA.
+                Solo demo integrada. Destinos remotos deshabilitados.
               </dd>
             </div>
           </dl>
