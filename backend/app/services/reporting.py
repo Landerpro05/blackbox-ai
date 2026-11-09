@@ -206,7 +206,9 @@ def report_data(session: Session, run_id: str, workspace: str) -> dict:
         "run": {
             "id": run.id,
             "status": run.status.value,
-            "target_url": safe_url(run.target_url or project.base_url),
+            "target_url": safe_url(run.target_url)
+            if run.target_url
+            else "[Destino no registrado]",
             "created_at": date(run.created_at),
             "started_at": date(run.started_at),
             "finished_at": date(run.finished_at),
@@ -624,6 +626,7 @@ def compare(
     new = {fingerprint(i): i for i in current["issues"]}
     complete = (
         base.status == target.status == RunStatus.COMPLETED
+        and bool(base.target_url and target.target_url)
         and base.limits == target.limits
         and previous["run"]["target_url"] == current["run"]["target_url"]
         and not any(previous["omitted"].values())

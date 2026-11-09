@@ -1,4 +1,5 @@
 import csv
+import json
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from io import BytesIO, StringIO
@@ -567,3 +568,14 @@ def test_empty_csv_keeps_zero_totals_and_pdf_handles_unicode(client, history):
         page.extract_text() for page in PdfReader(BytesIO(pdf.content)).pages
     )
     assert "Proyecto áéñ" in text and "No se registraron incidencias" in text
+
+
+def test_legacy_missing_target_never_uses_current_project_url(client, history):
+    with history["factory"].begin() as session:
+        session.get(Project, history["project"]).base_url = "https://another.example/"
+        session.get(Run, history["base"]).target_url = ""
+        session.get(Run, history["target"]).target_url = ""
+    data = client.get(route(history, "export/json")).json()
+    assert data["run"]["target_url"] == "[Destino no registrado]"
+    assert "another.example" not in json.dumps(data)
+    assert client.get(compare_url(history)).json()["counts"]["RESOLVED"] == 0
