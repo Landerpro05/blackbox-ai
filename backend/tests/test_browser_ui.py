@@ -56,7 +56,7 @@ def wait_http(url, process):
 
 
 @pytest.fixture
-def local_application(tmp_path, monkeypatch):
+def local_application(tmp_path, monkeypatch, request):
     root = BACKEND_ROOT.parent
     frontend = root / "frontend"
     node = root / ".tools" / "node" / "node.exe"
@@ -74,14 +74,19 @@ def local_application(tmp_path, monkeypatch):
         monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(browsers))
     api_port, ui_port = free_port(), free_port()
     api_url, ui_url = f"http://127.0.0.1:{api_port}", f"http://127.0.0.1:{ui_port}"
+    lab_options = getattr(request, "param", {})
     environment = {
         **os.environ,
         "BLACKBOX_ENVIRONMENT": "test",
         "BLACKBOX_DATABASE_URL": f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
         "BLACKBOX_EVIDENCE_DIR": str(tmp_path / "evidence"),
         "BLACKBOX_DEMO_TESTING_ENABLED": "true",
-        "BLACKBOX_LOCAL_LAB_ENABLED": "false",
-        "BLACKBOX_LOCAL_LAB_ALLOWED_ORIGINS": "[]",
+        "BLACKBOX_LOCAL_LAB_ENABLED": "true"
+        if lab_options.get("local_lab")
+        else "false",
+        "BLACKBOX_LOCAL_LAB_ALLOWED_ORIGINS": json.dumps(
+            lab_options.get("origins", [])
+        ),
         "BLACKBOX_AI_PROVIDER": "disabled",
         "BLACKBOX_AI_API_KEY": "",
         "BLACKBOX_AI_MODEL": "",
@@ -256,6 +261,16 @@ def test_react_start_results_filters_screenshots_mobile_and_cancellation(
 
 
 @pytest.mark.browser
+@pytest.mark.parametrize(
+    "local_application",
+    [
+        {
+            "local_lab": True,
+            "origins": ["http://127.0.0.1:3000", "http://127.0.0.1:3001"],
+        }
+    ],
+    indirect=True,
+)
 def test_testing_lab_environment_suite_editor_execution_evidence_and_mobile(
     local_application,
 ):
@@ -350,7 +365,9 @@ def test_testing_lab_environment_suite_editor_execution_evidence_and_mobile(
                 results.get_by_role("link", name="Evidencia", exact=True)
             ).to_have_count(1)
             page.set_viewport_size({"width": 390, "height": 844})
-            page.wait_for_function("document.querySelector('.sidebar').getBoundingClientRect().right <= 0")
+            page.wait_for_function(
+                "document.querySelector('.sidebar').getBoundingClientRect().right <= 0"
+            )
             page.evaluate("window.scrollTo(0, 0)")
             page.screenshot(
                 path=artifacts / "phase6-results-mobile.png", full_page=True
@@ -373,6 +390,43 @@ def test_testing_lab_environment_suite_editor_execution_evidence_and_mobile(
             assert page.evaluate(
                 "document.documentElement.scrollWidth <= innerWidth + 1"
             )
+            # Registering metadata performs no target IO. An external edit of
+            # the selected origin must invalidate consent on the next refresh.
+            local_environment = context.request.post(
+                f"{api_url}/api/v1/projects/{project['id']}/environments",
+                data={
+                    "name": "Cambio de origen",
+                    "kind": "local",
+                    "base_url": "http://127.0.0.1:3000/",
+                },
+            ).json()
+            page.reload()
+            page.get_by_role("button", name="Test Suites", exact=True).click()
+            page.get_by_role("button", name="Comprobaciones E2E", exact=True).click()
+            page.get_by_label("Entorno autorizado", exact=True).select_option(
+                label="Cambio de origen · ready"
+            )
+            page.get_by_label(
+                "Autorizo esta ejecución de solo lectura", exact=False
+            ).check()
+            expect(
+                page.get_by_role("button", name="Ejecutar suite autorizada", exact=True)
+            ).to_be_enabled()
+            changed = context.request.patch(
+                f"{api_url}/api/v1/environments/{local_environment['id']}",
+                data={"base_url": "http://127.0.0.1:3001/"},
+            )
+            assert changed.status == 200
+            page.get_by_label("Habilitar Título incorrecto", exact=True).click()
+            expect(
+                page.get_by_label(
+                    "Autorizo esta ejecución de solo lectura en http://127.0.0.1:3001.",
+                    exact=True,
+                )
+            ).not_to_be_checked()
+            expect(
+                page.get_by_role("button", name="Ejecutar suite autorizada", exact=True)
+            ).to_be_disabled()
             assert not errors, errors
             assert results_url
         finally:

@@ -545,7 +545,7 @@ function SuiteWorkspace({
   const [editor, setEditor] = useState<SuiteCase | "new">();
   const [remove, setRemove] = useState<string>();
   const [environmentId, setEnvironmentId] = useState("");
-  const [consent, setConsent] = useState(false);
+  const [consentOrigin, setConsentOrigin] = useState("");
   const [analysisId, setAnalysisId] = useState("");
   const [suggestion, setSuggestion] = useState(0);
   const [importName, setImportName] = useState("");
@@ -668,7 +668,7 @@ function SuiteWorkspace({
             value={environmentId}
             onChange={(e) => {
               setEnvironmentId(e.target.value);
-              setConsent(false);
+              setConsentOrigin("");
             }}
           >
             <option value="">Selecciona un entorno</option>
@@ -685,15 +685,19 @@ function SuiteWorkspace({
           change={(value) => {
             setEnvOffset(value);
             setEnvironmentId("");
-            setConsent(false);
+            setConsentOrigin("");
           }}
         />
         {environment && (
           <label className="lab-checkbox">
             <input
               type="checkbox"
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
+              checked={consentOrigin === environment.authorized_origin}
+              onChange={(e) =>
+                setConsentOrigin(
+                  e.target.checked ? environment.authorized_origin : "",
+                )
+              }
             />
             Autorizo esta ejecución de solo lectura en{" "}
             {environment.authorized_origin}.
@@ -704,7 +708,7 @@ function SuiteWorkspace({
           disabled={
             busy ||
             !environment ||
-            !consent ||
+            consentOrigin !== environment.authorized_origin ||
             environment.configuration_state !== "ready" ||
             !detail.cases.some((c) => c.enabled)
           }
@@ -712,7 +716,7 @@ function SuiteWorkspace({
             environment &&
             void action(async () => {
               const run = await labApi.start(suite, environment);
-              setConsent(false);
+              setConsentOrigin("");
               navigate(`/runs/${run.id}`);
             }, "Ejecución iniciada.")
           }
