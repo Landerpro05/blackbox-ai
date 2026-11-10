@@ -3,14 +3,14 @@ from enum import Enum
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
     String,
     Text,
-    JSON,
-    Boolean,
 )
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -118,6 +118,12 @@ class Run(Base):
         Boolean, default=False, server_default="0"
     )
     active_slot: Mapped[int | None] = mapped_column()
+    # Historical source IDs intentionally survive deletion; the snapshot is authoritative.
+    environment_id: Mapped[str | None] = mapped_column(String(36))
+    suite_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    environment_snapshot: Mapped[dict] = mapped_column(
+        JSON, default=dict, server_default="{}"
+    )
     project: Mapped[Project] = relationship(back_populates="runs")
     issues: Mapped[list["Issue"]] = relationship(
         back_populates="run", passive_deletes=True

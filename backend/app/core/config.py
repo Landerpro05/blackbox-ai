@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./data/blackbox.db"
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     demo_testing_enabled: bool = False
+    local_lab_enabled: bool = False
+    local_lab_allowed_origins: list[str] = Field(default_factory=list, max_length=5)
     evidence_dir: Path = BACKEND_ROOT / "evidence"
     ai_provider: Literal["disabled", "anthropic"] = "disabled"
     ai_model: str = Field(default="", max_length=100, pattern=r"^[A-Za-z0-9._:-]*$")
@@ -43,9 +45,18 @@ class Settings(BaseSettings):
     def resolve_evidence_directory(cls, value: Path) -> Path:
         return value if value.is_absolute() else BACKEND_ROOT / value
 
+    @field_validator("local_lab_allowed_origins")
+    @classmethod
+    def exact_origins(cls, values: list[str]) -> list[str]:
+        from app.testing.local_policy import local_origin
+
+        return sorted({local_origin(value, True) for value in values})
+
     @model_validator(mode="after")
     def demo_is_local_only(self) -> "Settings":
-        if self.demo_testing_enabled and self.environment == "production":
+        if (
+            self.demo_testing_enabled or self.local_lab_enabled
+        ) and self.environment == "production":
             raise ValueError(
                 "La demostración solo está disponible en development/test."
             )
