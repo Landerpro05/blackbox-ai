@@ -58,8 +58,8 @@ def password_operation(password, encoded=None):
 
 
 def strong_password(value):
-    if not 12 <= len(value) <= 128:
-        raise HTTPException(422, "Utiliza una contraseña de 12 a 128 caracteres.")
+    if not 15 <= len(value) <= 128:
+        raise HTTPException(422, "Utiliza una contraseña de 15 a 128 caracteres.")
     return value
 
 

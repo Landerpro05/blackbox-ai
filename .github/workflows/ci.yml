@@ -67,7 +67,7 @@ jobs:
         working-directory: backend
         env:
           BLACKBOX_DEMO_TESTING_ENABLED: "true"
-        run: python -m app.cli demo --standalone --database ../.tools/ci/cli.db --authorize --json ../.tools/ci/cli-results.json
+        run: python -c "import secrets; print(secrets.token_urlsafe(24))" | python -m app.cli demo --standalone --database ../.tools/ci/cli.db --email ci@example.com --password-stdin --bootstrap --authorize --json ../.tools/ci/cli-results.json
       - name: Resultados sintéticos de verificación
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

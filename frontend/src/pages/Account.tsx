@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH } from "../services/session";
 import { useCallback, useState, type FormEvent } from "react";
 import { useAuth } from "../components/AuthProvider";
 import { useResource } from "../hooks/useResource";
@@ -202,7 +203,7 @@ export function Account() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={12}
+              minLength={MIN_PASSWORD_LENGTH}
               maxLength={128}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}

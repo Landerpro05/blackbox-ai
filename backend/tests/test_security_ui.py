@@ -2,7 +2,7 @@ import pytest
 from app.core.config import BACKEND_ROOT
 from auth_support import EMAIL, PASSWORD
 from playwright.sync_api import expect, sync_playwright
-from test_browser_ui import local_application  # noqa: F401 — reuse disposable servers
+from test_browser_ui import local_application as local_application  # noqa: PLC0414 — explicit pytest fixture re-export
 
 
 @pytest.mark.browser

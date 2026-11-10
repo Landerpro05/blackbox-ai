@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH } from "../services/session";
 import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { LockKeyhole, ShieldCheck } from "lucide-react";
@@ -85,7 +86,7 @@ export function Login() {
               type="password"
               autoComplete={register ? "new-password" : "current-password"}
               required
-              minLength={register ? 12 : 1}
+              minLength={register ? MIN_PASSWORD_LENGTH : 1}
               maxLength={128}
               value={password}
               onChange={(e) => setPassword(e.target.value)}

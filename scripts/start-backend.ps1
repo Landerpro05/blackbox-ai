@@ -15,7 +15,7 @@ Push-Location $backendRoot
 try {
     & $pythonExe -m alembic upgrade head
     if ($LASTEXITCODE -ne 0) { throw 'No se pudieron aplicar las migraciones.' }
-    $serverArguments = @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', "$Port", '--workers', '1')
+    $serverArguments = @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', "$Port", '--workers', '1', '--no-proxy-headers', '--no-access-log')
     if ($Reload) { $serverArguments += '--reload' }
     & $pythonExe @serverArguments
     if ($LASTEXITCODE -ne 0) { throw 'El backend terminó con un error.' }

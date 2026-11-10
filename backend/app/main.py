@@ -53,13 +53,6 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         handler.setFormatter(logging.Formatter("%(message)s"))
         security_logger.addHandler(handler)
     security_logger.propagate = False
-    with application.state.session_factory.begin() as retention_session:
-        retention_session.execute(
-            delete(AuditEvent).where(
-                AuditEvent.created_at
-                < now() - timedelta(days=get_settings().audit_retention_days)
-            )
-        )
     manager = RunManager(
         application.state.session_factory, get_settings(), str(engine.url.database)
     )
@@ -68,6 +61,14 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.ai_manager = intelligence
     try:
         await manager.start()
+        # Only the process holding the worker lock performs retention/recovery.
+        with application.state.session_factory.begin() as retention_session:
+            retention_session.execute(
+                delete(AuditEvent).where(
+                    AuditEvent.created_at
+                    < now() - timedelta(days=get_settings().audit_retention_days)
+                )
+            )
         await intelligence.start()
         yield
     finally:

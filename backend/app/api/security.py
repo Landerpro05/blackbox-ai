@@ -77,7 +77,7 @@ def auth_capabilities():
     return {
         "registration": "invitation_only",
         "password_reset": False,
-        "minimum_password_length": 12,
+        "minimum_password_length": 15,
         "session_cookie": "HttpOnly; SameSite=Strict",
         "deployment_mode": get_settings().deployment_mode,
     }
@@ -468,8 +468,17 @@ def accept(data: AcceptInvite, identity: Identity, session: Database):
         raise HTTPException(403, "Invitación no disponible.")
     if session.get(WorkspaceMembership, (identity.user_id, row.workspace_id)):
         raise HTTPException(409, "Ya perteneces a este workspace.")
-    if session.scalar(select(func.count()).select_from(WorkspaceMembership).where(WorkspaceMembership.user_id == identity.user_id)) >= 20:
-        raise HTTPException(422, "Se alcanzó el límite local de 20 membresías por usuario.")
+    if (
+        session.scalar(
+            select(func.count())
+            .select_from(WorkspaceMembership)
+            .where(WorkspaceMembership.user_id == identity.user_id)
+        )
+        >= 20
+    ):
+        raise HTTPException(
+            422, "Se alcanzó el límite local de 20 membresías por usuario."
+        )
     session.add(
         WorkspaceMembership(
             user_id=identity.user_id, workspace_id=row.workspace_id, role=row.role
