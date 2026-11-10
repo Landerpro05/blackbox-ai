@@ -596,8 +596,10 @@ def test_migration_preserves_phase4_data_and_recovery(database):
     _, run_id = seed(factory, CASES[:1])
     command.downgrade(config, "c39d87a4e620")
     with factory() as session:
+        # At phase 4, phase-6 columns intentionally do not exist. Query the
+        # historical columns explicitly rather than loading today's full mapper.
         assert (
-            session.get(Run, run_id)
+            session.scalar(select(Run.id).where(Run.id == run_id)) == run_id
             and session.scalar(select(func.count()).select_from(Issue)) == 1
         )
     command.upgrade(config, "head")

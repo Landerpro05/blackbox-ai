@@ -80,6 +80,8 @@ def local_application(tmp_path, monkeypatch):
         "BLACKBOX_DATABASE_URL": f"sqlite:///{(tmp_path / 'test.db').as_posix()}",
         "BLACKBOX_EVIDENCE_DIR": str(tmp_path / "evidence"),
         "BLACKBOX_DEMO_TESTING_ENABLED": "true",
+        "BLACKBOX_LOCAL_LAB_ENABLED": "false",
+        "BLACKBOX_LOCAL_LAB_ALLOWED_ORIGINS": "[]",
         "BLACKBOX_AI_PROVIDER": "disabled",
         "BLACKBOX_AI_API_KEY": "",
         "BLACKBOX_AI_MODEL": "",
@@ -249,6 +251,130 @@ def test_react_start_results_filters_screenshots_mobile_and_cancellation(
             )
             assert not errors, errors
             assert not blocked, blocked
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_testing_lab_environment_suite_editor_execution_evidence_and_mobile(
+    local_application,
+):
+    from playwright.sync_api import expect, sync_playwright
+
+    ui_url, api_url = local_application
+    artifacts = BACKEND_ROOT.parent / ".tools/qa"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True, args=["--disable-gpu"])
+        try:
+            context = browser.new_context(viewport={"width": 1440, "height": 1080})
+            context.route(
+                "**/*",
+                lambda route: (
+                    route.continue_()
+                    if route.request.url.startswith((ui_url + "/", api_url + "/"))
+                    else route.abort()
+                ),
+            )
+            page = context.new_page()
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            project = context.request.post(
+                api_url + "/api/projects",
+                data={
+                    "name": "Laboratorio E2E",
+                    "base_url": "http://blackbox-demo.invalid/",
+                },
+            ).json()
+            page.goto(ui_url + "/lab?project=" + project["id"])
+            expect(
+                page.get_by_role("heading", name="Entornos", exact=True)
+            ).to_be_visible()
+            page.get_by_label("Nombre del entorno", exact=True).fill("Demo E2E")
+            page.get_by_label("Tipo", exact=True).select_option("demo")
+            page.get_by_role("button", name="Crear entorno", exact=True).click()
+            expect(page.get_by_text("Entorno guardado.", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Comprobar", exact=True).click()
+            page.get_by_role(
+                "button", name="Autorizar comprobación", exact=True
+            ).click()
+            expect(page.get_by_text("Catálogo verificado.", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Test Suites", exact=True).click()
+            page.get_by_label("Nombre de la suite", exact=True).fill(
+                "Comprobaciones E2E"
+            )
+            page.get_by_role("button", name="Crear suite", exact=True).click()
+            expect(
+                page.get_by_role("heading", name="Comprobaciones E2E", exact=True)
+            ).to_be_visible()
+            page.get_by_role("button", name="Añadir caso", exact=True).click()
+            page.get_by_label("Nombre del caso", exact=True).fill("Título correcto")
+            page.get_by_label("Tipo de prueba", exact=True).select_option("title")
+            page.get_by_label("Título esperado", exact=True).fill("Acerca de")
+            page.get_by_role("button", name="Guardar caso", exact=True).click()
+            expect(page.get_by_text("Caso guardado.", exact=True)).to_be_visible()
+            page.get_by_role("button", name="Añadir caso", exact=True).click()
+            page.get_by_label("Nombre del caso", exact=True).fill("Título incorrecto")
+            page.get_by_label("Tipo de prueba", exact=True).select_option("title")
+            page.get_by_label("Título esperado", exact=True).fill("No coincide")
+            page.get_by_role("button", name="Guardar caso", exact=True).click()
+            expect(page.get_by_text("1. Título incorrecto", exact=True)).to_be_visible()
+            page.get_by_label("Entorno autorizado", exact=True).select_option(
+                label="Demo E2E · ready"
+            )
+            expect(
+                page.get_by_role("button", name="Ejecutar suite autorizada", exact=True)
+            ).to_be_disabled()
+            page.get_by_label(
+                "Autorizo esta ejecución de solo lectura", exact=False
+            ).check()
+            page.evaluate("window.scrollTo(0, 0)")
+            page.screenshot(path=artifacts / "phase6-lab-desktop.png", full_page=True)
+            page.get_by_role(
+                "button", name="Ejecutar suite autorizada", exact=True
+            ).click()
+            page.wait_for_url(re.compile(r"/runs/[0-9a-f-]+$"))
+            results_url = page.url
+            results = page.get_by_role(
+                "region", name="Resultados de la suite", exact=True
+            )
+            expect(results.get_by_text("pass: 1", exact=True)).to_be_visible(
+                timeout=30000
+            )
+            expect(results.get_by_text("fail: 1", exact=True)).to_be_visible()
+            expect(
+                results.get_by_role("link", name="Evidencia", exact=True)
+            ).to_have_count(2)
+            results.get_by_label("Mostrar solo fallos y errores", exact=True).check()
+            expect(
+                results.get_by_role("link", name="Evidencia", exact=True)
+            ).to_have_count(1)
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.wait_for_function("document.querySelector('.sidebar').getBoundingClientRect().right <= 0")
+            page.evaluate("window.scrollTo(0, 0)")
+            page.screenshot(
+                path=artifacts / "phase6-results-mobile.png", full_page=True
+            )
+            assert page.evaluate(
+                "document.documentElement.scrollWidth <= innerWidth + 1"
+            )
+            page.goto(ui_url + "/lab?project=" + project["id"])
+            page.get_by_role("button", name="Integración CI/CD", exact=True).click()
+            expect(
+                page.get_by_text("Estado remoto: sin consultar.", exact=False)
+            ).to_be_visible()
+            page.get_by_role("button", name="Test Suites", exact=True).click()
+            page.get_by_role("button", name="Comprobaciones E2E", exact=True).click()
+            expect(
+                page.get_by_role("link", name=re.compile("Completado"))
+            ).to_be_visible()
+            page.evaluate("window.scrollTo(0, 0)")
+            page.screenshot(path=artifacts / "phase6-lab-mobile.png", full_page=True)
+            assert page.evaluate(
+                "document.documentElement.scrollWidth <= innerWidth + 1"
+            )
+            assert not errors, errors
+            assert results_url
         finally:
             browser.close()
 

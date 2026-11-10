@@ -69,7 +69,7 @@ class RunManager:
 
     def _create(
         self, project_id: str, workspace: str, data: RunCreate
-    ) -> tuple[RunResponse, str]:
+    ) -> tuple[RunResponse, str, RunLimits, dict | None]:
         with self.factory() as session:
             session.execute(text("BEGIN IMMEDIATE"))
             project = session.scalar(

@@ -36,6 +36,17 @@ class EnvironmentInput(StrictModel):
     base_url: BaseUrl
     limits: RunLimits = Field(default_factory=RunLimits)
 
+    @model_validator(mode="before")
+    @classmethod
+    def literal_local_input(cls, value):
+        # Check before HttpUrl can normalize alternative IPv4/port spellings.
+        if isinstance(value, dict) and value.get("kind") == "local":
+            raw = value.get("base_url")
+            if not isinstance(raw, str):
+                raise ValueError("Introduce una URL local literal.")
+            local_origin(raw)
+        return value
+
     @model_validator(mode="after")
     def destination(self):
         if self.kind == "demo":
@@ -151,7 +162,8 @@ class Patch(StrictModel):
 class EnvironmentPatch(Patch):
     name: ProjectName | None = None
     kind: Literal["demo", "local"] | None = None
-    base_url: BaseUrl | None = None
+    # The merged EnvironmentInput performs URL validation with the stored kind.
+    base_url: Annotated[str, Field(max_length=2048)] | None = None
     limits: RunLimits | None = None
 
 
