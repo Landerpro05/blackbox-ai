@@ -60,6 +60,9 @@ def read_dashboard(session: Session, workspace_id: str = "local") -> DashboardRe
             .group_by(func.date(Issue.created_at))
         ).all()
     )
+    # SQLite returns date strings; PostgreSQL drivers return datetime.date.
+    runs_by_day = {str(day): count for day, count in runs_by_day.items()}
+    issues_by_day = {str(day): count for day, count in issues_by_day.items()}
     trend = []
     for offset in range(14):
         day = first_day + timedelta(days=offset)

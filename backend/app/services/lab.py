@@ -2,9 +2,10 @@ from urllib.parse import urlsplit
 
 from fastapi import HTTPException
 from pydantic import ValidationError
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.database import begin_write
 from app.core.errors import RunBusy, RunNotFound
 from app.models import (
     CaseResult,
@@ -29,6 +30,7 @@ from app.testing.policy import DEMO_ORIGIN, DemoPolicy
 def scoped_object(session, model, identifier, workspace):
     row = session.scalar(
         select(model)
+        .execution_options(populate_existing=True)
         .join(Project)
         .where(
             model.id == identifier,
@@ -44,6 +46,7 @@ def scoped_object(session, model, identifier, workspace):
 def scoped_case(session, identifier, workspace):
     row = session.scalar(
         select(SuiteCase)
+        .execution_options(populate_existing=True)
         .join(TestSuite)
         .join(Project)
         .where(
@@ -125,7 +128,7 @@ class LabRepository:
         self.session, self.workspace, self.settings = session, workspace, settings
 
     def begin(self):
-        self.session.execute(text("BEGIN IMMEDIATE"))
+        begin_write(self.session)
 
     def guard(self, project_id):
         if self.session.scalar(

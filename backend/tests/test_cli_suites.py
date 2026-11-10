@@ -44,6 +44,9 @@ def test_cli_runs_persisted_suite_and_distinguishes_fail_error_timeout(
     database, tmp_path, expected
 ):
     _, factory, _ = database
+    from auth_support import ensure_identity
+
+    ensure_identity(factory)
     limits = RunLimits(navigation_timeout_seconds=1 if expected == 2 else 15)
     with factory.begin() as session:
         project = Project(name="CLI persistida", base_url=DEMO_URL)
@@ -105,6 +108,9 @@ def test_cli_runs_persisted_suite_and_distinguishes_fail_error_timeout(
             "-m",
             "app.cli",
             "test",
+            "--email",
+            "owner@example.com",
+            "--password-stdin",
             "--standalone",
             "--project",
             identifiers[0],
@@ -125,6 +131,7 @@ def test_cli_runs_persisted_suite_and_distinguishes_fail_error_timeout(
         capture_output=True,
         text=True,
         timeout=45,
+        input="Fase7-pruebas-012345!\n",
         check=False,
     )
     assert result.returncode == expected, result.stderr

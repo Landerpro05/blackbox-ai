@@ -5,7 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from auth_support import AuthenticatedTestClient as TestClient
 from sqlalchemy import select
 
 from app.core.config import get_settings

@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from app.models import AIAnalysis
 from app.repositories.runs import scoped_run
 from app.schemas.intelligence import AnalysisCreate, AnalysisList, AnalysisResponse
 from app.services.ai_manager import AIManager, response, scoped_analysis
+from app.services.security import audit_request
 
 router = APIRouter(prefix="/api/v1", tags=["intelligence"])
 Database = Annotated[Session, Depends(get_session)]
@@ -38,7 +39,14 @@ async def create(
     access: Access,
     manager: Manager,
     result: Response,
+    request: Request,
+    session: Database,
 ):
+    if data.mode == "llm" and access.role not in {"owner", "admin"}:
+        raise HTTPException(403, "Solicitar un LLM externo requiere owner o admin.")
+    if data.mode == "llm":
+        scoped_run(session, str(run_id), access.workspace_id)
+        audit_request(request, "llm.requested", str(run_id), outcome="requested")
     row, fresh = await manager.submit(str(run_id), access.workspace_id, data)
     result.status_code = 202 if fresh else 200
     result.headers["Location"] = f"/api/v1/ai-analyses/{row.id}"

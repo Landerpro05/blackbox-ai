@@ -29,7 +29,7 @@ from app.models import (
 from app.testing.demo import response_for
 from app.testing.local_policy import ControlledLocalPolicy, LocalBroker, local_origin
 from app.testing.policy import DEMO_ORIGIN, DEMO_URL, DestinationDenied
-from fastapi.testclient import TestClient
+from auth_support import AuthenticatedTestClient as TestClient
 from sqlalchemy import text
 
 
@@ -564,6 +564,10 @@ def test_actual_cli_demo_json_and_exit_codes(tmp_path, monkeypatch):
         "-m",
         "app.cli",
         "demo",
+        "--bootstrap",
+        "--email",
+        "owner@example.com",
+        "--password-stdin",
         "--standalone",
         "--database",
         str(tmp_path / "cli.db"),
@@ -587,6 +591,7 @@ def test_actual_cli_demo_json_and_exit_codes(tmp_path, monkeypatch):
         capture_output=True,
         text=True,
         timeout=40,
+        input="Fase7-pruebas-012345!\n",
         check=False,
     )
     assert result.returncode == 0, result.stderr

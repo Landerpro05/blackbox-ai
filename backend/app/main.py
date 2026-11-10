@@ -1,10 +1,14 @@
+import logging
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import delete
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
@@ -15,11 +19,20 @@ from app.api.projects import router as projects_router
 from app.api.reporting import router as reporting_router
 from app.api.routes import router
 from app.api.runs import router as runs_router
+from app.api.security import router as security_router
 from app.core.config import get_settings
 from app.core.database import build_engine, session_factory
+from app.core.security_middleware import SecurityMiddleware
+from app.models.security import AuditEvent
 from app.repositories.runs import RunNotFound
 from app.services.ai_manager import AIManager
 from app.services.run_manager import DemoDisabled, RunBusy, RunManager
+from app.services.security import (
+    LocalLimiter,
+    get_current_user,
+    now,
+    password_operation,
+)
 from app.testing.policy import DestinationDenied
 
 
@@ -27,6 +40,26 @@ from app.testing.policy import DestinationDenied
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     engine = build_engine(get_settings().database_url)
     application.state.session_factory = session_factory(engine)
+    application.state.rate_limiter = LocalLimiter()
+    application.state.dummy_password_hash = password_operation(
+        "not-a-user-password-" + secrets.token_hex(16)
+    )
+    logging.getLogger("uvicorn.access").disabled = True
+    security_logger = logging.getLogger("blackbox.security")
+    security_logger.disabled = False
+    security_logger.setLevel(logging.INFO)
+    if not security_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        security_logger.addHandler(handler)
+    security_logger.propagate = False
+    with application.state.session_factory.begin() as retention_session:
+        retention_session.execute(
+            delete(AuditEvent).where(
+                AuditEvent.created_at
+                < now() - timedelta(days=get_settings().audit_retention_days)
+            )
+        )
     manager = RunManager(
         application.state.session_factory, get_settings(), str(engine.url.database)
     )
@@ -50,16 +83,23 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="BLACKBOX AI",
     version="0.1.0",
-    description="Phase 6: controlled local lab, declarative suites and evidence-based intelligence. Arbitrary browsing disabled.",
+    description="Phase 7: authenticated workspaces, revocable sessions and controlled testing. No public deployment or arbitrary browsing.",
     lifespan=lifespan,
 )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_origins,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["Accept", "Content-Type"],
+    allow_headers=[
+        "Accept",
+        "Content-Type",
+        "X-CSRF-Token",
+        "X-Workspace-ID",
+        "X-Blackbox-Request",
+    ],
 )
+app.add_middleware(SecurityMiddleware)
 
 
 @app.middleware("http")
@@ -73,12 +113,14 @@ async def no_store_api(
 
 
 app.include_router(router)
-app.include_router(projects_router, prefix="/api/v1")
-app.include_router(projects_router, prefix="/api")
-app.include_router(runs_router)
-app.include_router(reporting_router)
-app.include_router(intelligence_router)
-app.include_router(lab_router)
+protected = [Depends(get_current_user)]
+app.include_router(projects_router, prefix="/api/v1", dependencies=protected)
+app.include_router(projects_router, prefix="/api", dependencies=protected)
+app.include_router(runs_router, dependencies=protected)
+app.include_router(reporting_router, dependencies=protected)
+app.include_router(intelligence_router, dependencies=protected)
+app.include_router(lab_router, dependencies=protected)
+app.include_router(security_router)
 
 
 @app.exception_handler(RunNotFound)

@@ -25,6 +25,7 @@ from app.schemas.runs import (
 )
 from app.services.run_manager import RunManager
 from app.testing.policy import DEMO_URL
+from app.services.security import audit_request
 
 router = APIRouter(prefix="/api/v1", tags=["testing"])
 Access = Annotated[WorkspaceAccess, Depends(get_workspace_access)]
@@ -58,9 +59,15 @@ def capabilities(service: Manager) -> dict:
 
 @router.post("/projects/{project_id}/runs", response_model=RunResponse, status_code=202)
 async def start_run(
-    project_id: UUID, data: RunCreate, access: Access, service: Manager
+    project_id: UUID,
+    data: RunCreate,
+    access: Access,
+    service: Manager,
+    request: Request,
 ) -> RunResponse:
-    return await service.submit(str(project_id), access.workspace_id, data)
+    result = await service.submit(str(project_id), access.workspace_id, data)
+    audit_request(request, "run.started", result.id)
+    return result
 
 
 @router.get("/projects/{project_id}/runs")
@@ -165,8 +172,12 @@ def get_pages(run_id: UUID, access: Access, session: Database) -> list[PageRespo
 
 
 @router.post("/runs/{run_id}/cancel", response_model=RunResponse, status_code=202)
-async def cancel_run(run_id: UUID, access: Access, service: Manager) -> RunResponse:
-    return await service.cancel(str(run_id), access.workspace_id)
+async def cancel_run(
+    run_id: UUID, access: Access, service: Manager, request: Request
+) -> RunResponse:
+    result = await service.cancel(str(run_id), access.workspace_id)
+    audit_request(request, "run.cancel_requested", str(run_id))
+    return result
 
 
 @router.get("/runs/{run_id}/pages/{page_id}/screenshot")

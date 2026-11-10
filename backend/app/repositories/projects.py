@@ -1,6 +1,7 @@
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.database import begin_write
 from app.core.errors import RunBusy
 from app.models import AIAnalysis, Project, Run
 from app.schemas.projects import ProjectCreate, ProjectUpdate
@@ -57,7 +58,7 @@ class ProjectRepository:
         self.session.commit()
 
     def _guard_mutation(self, project_id: str) -> None:
-        self.session.execute(text("BEGIN IMMEDIATE"))
+        begin_write(self.session)
         if self.session.scalar(
             select(Run.id)
             .where(Run.project_id == project_id, Run.active_slot == 1)

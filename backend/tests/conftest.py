@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from fastapi.testclient import TestClient
+from auth_support import AuthenticatedTestClient as TestClient
 
 from app.core.config import BACKEND_ROOT, get_settings
 from app.core.database import build_engine, session_factory

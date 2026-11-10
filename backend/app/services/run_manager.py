@@ -4,11 +4,12 @@ import os
 import time
 from collections.abc import Callable
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
+from app.core.database import begin_write
 from app.core.errors import DemoDisabled, RunBusy
 from app.models import Project, Run, RunStatus
 from app.repositories.runs import RunNotFound, RunWriter, run_response
@@ -71,7 +72,7 @@ class RunManager:
         self, project_id: str, workspace: str, data: RunCreate
     ) -> tuple[RunResponse, str, RunLimits, dict | None]:
         with self.factory() as session:
-            session.execute(text("BEGIN IMMEDIATE"))
+            begin_write(session)
             project = session.scalar(
                 select(Project).where(
                     Project.id == project_id, Project.workspace_id == workspace

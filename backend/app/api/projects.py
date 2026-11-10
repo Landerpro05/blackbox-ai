@@ -16,6 +16,7 @@ from app.schemas.projects import (
     ProjectResponse,
     ProjectUpdate,
 )
+from app.services.security import audit_request
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -64,6 +65,7 @@ def create_project(
     data: ProjectCreate, repository: Repository, response: Response, request: Request
 ) -> ProjectResponse:
     project = repository.create(data)
+    audit_request(request, "project.created", project.id)
     response.headers["Location"] = f"{request.url.path}/{project.id}"
     return ProjectResponse.model_validate(project)
 
@@ -82,7 +84,9 @@ def update_project(
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: UUID, repository: Repository) -> Response:
+def delete_project(
+    project_id: UUID, repository: Repository, request: Request
+) -> Response:
     project = require_project(repository, project_id)
     # Remember owned run IDs before the database cascade removes them.
     from sqlalchemy import select
@@ -94,6 +98,7 @@ def delete_project(project_id: UUID, repository: Repository) -> Response:
         repository.session.scalars(select(Run.id).where(Run.project_id == project.id))
     )
     repository.delete(project)
+    audit_request(request, "project.deleted", str(project_id))
     store = EvidenceStore(get_settings().evidence_dir)
     for run_id in run_ids:
         try:

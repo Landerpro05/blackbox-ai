@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 import httpx2
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Request
 from sqlalchemy import func, select
 
 from app.api.runs import Access, Database, Manager
@@ -32,6 +32,7 @@ from app.services.lab import (
 )
 from app.testing.local_policy import LocalBroker
 from app.testing.policy import DestinationDenied
+from app.services.security import audit_request
 
 router = APIRouter(prefix="/api/v1", tags=["testing-lab"])
 
@@ -181,9 +182,15 @@ def import_ai(suite_id: UUID, data: SuggestionImport, repo: Repository):
 
 @router.post("/suites/{suite_id}/runs", status_code=202)
 async def start_suite(
-    suite_id: UUID, data: SuiteRunCreate, access: Access, service: Manager
+    suite_id: UUID,
+    data: SuiteRunCreate,
+    access: Access,
+    service: Manager,
+    request: Request,
 ):
-    return await service.submit_suite(str(suite_id), access.workspace_id, data)
+    result = await service.submit_suite(str(suite_id), access.workspace_id, data)
+    audit_request(request, "run.started", result.id)
+    return result
 
 
 @router.get("/suites/{suite_id}/runs")

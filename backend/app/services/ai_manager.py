@@ -6,9 +6,10 @@ from datetime import UTC, timedelta
 from decimal import ROUND_CEILING, Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 
+from app.core.database import begin_write
 from app.core.errors import RunNotFound
 from app.models import AIAnalysis, Project, Run
 from app.models.entities import utc_now
@@ -221,7 +222,7 @@ class AIManager:
 
     def _create(self, run_id: str, workspace: str, options: AnalysisCreate):
         with self.factory() as session:
-            session.execute(text("BEGIN IMMEDIATE"))
+            begin_write(session)
             scoped_run(session, run_id, workspace)
             if options.mode == "llm":
                 if not options.authorize_external:

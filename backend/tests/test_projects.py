@@ -118,7 +118,7 @@ def test_missing_required_fields_and_non_json_body(client):
             content='{"name":"X","base_url":"https://example.com"}',
             headers={"Content-Type": "text/plain"},
         ).status_code
-        == 422
+        == 415  # Phase 7 rejects unsupported media before parsing authenticated writes.
     )
 
 
@@ -280,8 +280,8 @@ def test_workspace_scope_cannot_be_supplied_by_client(client, database):
             )
         )
     assert (
-        client.get("/api/projects", headers={"X-Workspace-Id": "other"}).json()["total"]
-        == 0
+        client.get("/api/projects", headers={"X-Workspace-Id": "other"}).status_code
+        == 404  # Phase 7 validates membership rather than ignoring a supplied ID.
     )
     for method in ("get", "patch", "delete"):
         options = {"json": {"name": "Attack"}} if method == "patch" else {}

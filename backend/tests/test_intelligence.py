@@ -23,7 +23,7 @@ from app.services.ai_provider import (
     ProviderResult,
 )
 from app.services.ai_rules import analyze_rules
-from fastapi.testclient import TestClient
+from auth_support import AuthenticatedTestClient as TestClient
 from pydantic import ValidationError
 from sqlalchemy import func, select
 

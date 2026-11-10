@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import getpass
 import json
 import os
 import sys
@@ -38,6 +39,18 @@ def parser():
         "--database", type=Path, help="SQLite independiente; solo con --standalone"
     )
     root.add_argument("--project", type=UUID)
+    root.add_argument("--email", required=True)
+    root.add_argument(
+        "--password-stdin",
+        action="store_true",
+        help="Leer contraseña por stdin, nunca como argumento",
+    )
+    root.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help="Primera cuenta de una base standalone vacía, explícitamente",
+    )
+    root.add_argument("--workspace", help="Workspace del usuario autenticado")
     root.add_argument("--suite", type=UUID)
     root.add_argument("--environment", type=UUID)
     root.add_argument("--origin", help="Origen exacto consentido del entorno")
@@ -49,6 +62,45 @@ def parser():
     )
     root.add_argument("--json", type=Path, dest="output")
     return root
+
+
+@asynccontextmanager
+async def authenticated(client, args):
+    parsed = urlsplit(str(client.base_url))
+    client.headers.update(
+        {
+            "Origin": f"{parsed.scheme}://{parsed.netloc}",
+            "X-Blackbox-Request": "1",
+            "Content-Type": "application/json",
+        }
+    )
+    payload = {"email": args.email, "password": args.password.get_secret_value()}
+    path = "auth/login"
+    if args.bootstrap:
+        from app.main import app
+        from app.services.security import bootstrap_invitation
+
+        with app.state.session_factory() as session:
+            invitation = bootstrap_invitation(session)
+        payload.update({"invitation": invitation, "workspace_name": "Workspace CLI"})
+        path = "auth/register"
+    response = await client.post(path, json=payload)
+    if response.status_code not in {200, 201}:
+        raise ValueError("No se pudo autenticar la CLI.")
+    data = response.json()
+    client.headers.update(
+        {
+            "X-CSRF-Token": data["csrf_token"],
+            "X-Workspace-ID": args.workspace or data["active_workspace_id"] or "",
+        }
+    )
+    try:
+        yield client
+    finally:
+        try:
+            await client.post("auth/logout", json={})
+        except httpx2.HTTPError:
+            pass  # No credential or response body is logged on cleanup failure.
 
 
 @asynccontextmanager
@@ -71,7 +123,8 @@ async def client_for(args):
             follow_redirects=False,
             timeout=15,
         ) as client:
-            yield client
+            async with authenticated(client, args):
+                yield client
         return
     if args.database:
         destination = args.database.resolve()
@@ -108,7 +161,8 @@ async def client_for(args):
             timeout=15,
         ) as client,
     ):
-        yield client
+        async with authenticated(client, args):
+            yield client
 
 
 async def execute(args):
@@ -225,6 +279,8 @@ def main(argv=None):
         argument_parser.error("Se requiere --authorize para cada ejecución.")
     if args.database and not args.standalone:
         argument_parser.error("--database requiere --standalone.")
+    if args.bootstrap and not args.standalone:
+        argument_parser.error("--bootstrap requiere una base standalone sin usuarios.")
     if args.command == "test" and not all(
         [args.project, args.suite, args.environment, args.origin]
     ):
@@ -232,6 +288,13 @@ def main(argv=None):
             "test requiere --project, --suite, --environment y --origin."
         )
     try:
+        from pydantic import SecretStr
+
+        args.password = SecretStr(
+            sys.stdin.readline(512).rstrip("\r\n")
+            if args.password_stdin
+            else getpass.getpass("Contraseña: ")
+        )
         return asyncio.run(execute(args))
     except KeyboardInterrupt:
         return 3
