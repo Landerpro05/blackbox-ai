@@ -370,7 +370,7 @@ def test_real_local_catalog_all_seven_case_types_failures_history_and_ai(
     lab_client, controlled_server
 ):
     client = lab_client
-    project, env, suite = create_lab(client, controlled_server, "local")
+    _project, env, suite = create_lab(client, controlled_server, "local")
     assert (
         client.post(
             f"/api/v1/environments/{env['id']}/check",
@@ -577,6 +577,7 @@ def test_actual_cli_demo_json_and_exit_codes(tmp_path, monkeypatch):
         capture_output=True,
         text=True,
         timeout=15,
+        check=False,
     )
     assert denied.returncode == 2 and not output.exists()
     result = subprocess.run(
@@ -586,6 +587,7 @@ def test_actual_cli_demo_json_and_exit_codes(tmp_path, monkeypatch):
         capture_output=True,
         text=True,
         timeout=40,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     persisted = json.loads(output.read_text("utf-8"))

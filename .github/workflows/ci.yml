@@ -24,7 +24,7 @@ jobs:
       BLACKBOX_AI_MODEL: ""
       BLACKBOX_LOCAL_LAB_ENABLED: "false"
       BLACKBOX_LOCAL_LAB_ALLOWED_ORIGINS: "[]"
-      BLACKBOX_DEMO_TESTING_ENABLED: "true"
+      BLACKBOX_DEMO_TESTING_ENABLED: "false"
       BLACKBOX_DATABASE_URL: sqlite:///./data/ci-migrations.db
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.tools/browsers
     steps:
@@ -64,6 +64,8 @@ jobs:
           npm --prefix frontend run build
       - name: Demo CLI con base independiente
         working-directory: backend
+        env:
+          BLACKBOX_DEMO_TESTING_ENABLED: "true"
         run: python -m app.cli demo --standalone --database ../.tools/ci/cli.db --authorize --json ../.tools/ci/cli-results.json
       - name: Resultados sintéticos de verificación
         if: always()

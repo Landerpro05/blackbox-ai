@@ -4,7 +4,6 @@ import subprocess
 import sys
 
 import pytest
-
 from app.core.config import BACKEND_ROOT
 from app.models import Project, SuiteCase, TestEnvironment, TestSuite
 from app.schemas.runs import RunLimits
