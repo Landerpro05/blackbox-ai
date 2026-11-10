@@ -52,7 +52,7 @@ export function Settings() {
               <ShieldCheck size={18} />
               Alcance actual
             </h2>
-            <p>Fase 5 · AI Intelligence</p>
+            <p>Fase 6 · Testing Lab y CI</p>
           </div>
         </div>
         <div className="settings-body">
@@ -63,13 +63,18 @@ export function Settings() {
           </p>
           <p>
             Registrar o editar un proyecto no provoca navegación a su URL. El
-            motor Playwright solo admite la demostración integrada, requiere
-            activación en el servidor y autorización por ejecución. La
-            navegación remota está deshabilitada. Los resultados pueden
-            interpretarse con reglas locales o con un LLM externo configurado en
-            el backend. El modo externo requiere confirmar el proveedor, modelo
-            y envío de evidencias redactadas. Los tests propuestos nunca se
-            ejecutan automáticamente.
+            motor Playwright admite la demo integrada y el catálogo local
+            verificado del proyecto, requiere activación en el servidor y
+            autorización por ejecución. La navegación remota está deshabilitada.
+            Los resultados pueden interpretarse con reglas locales o con un LLM
+            externo configurado en el backend. El modo externo requiere
+            confirmar el proveedor, modelo y envío de evidencias redactadas. Los
+            tests propuestos nunca se ejecutan automáticamente.
+          </p>
+          <p>
+            Testing Lab organiza entornos y suites declarativas. Las
+            aplicaciones arbitrarias siguen deshabilitadas. Puedes ejecutar las
+            suites desde la CLI y verificar el proyecto con GitHub Actions.
           </p>
           <p>
             Este entorno local aún no dispone de autenticación. Usa los

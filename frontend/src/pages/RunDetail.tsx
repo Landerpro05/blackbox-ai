@@ -18,6 +18,7 @@ import { formatDate } from "../services/format";
 import { EmptyState } from "../components/EmptyState";
 import { ReportPanel } from "../components/ReportPanel";
 import { AIIntelligencePanel } from "../components/AIIntelligencePanel";
+import { SuiteResults } from "../components/SuiteResults";
 import { severityLabels } from "../services/reporting";
 import { ResourceError, ResourceLoading } from "../components/ResourceFeedback";
 import type { RunDetailData, TestIssue } from "../types/api";
@@ -84,7 +85,8 @@ function RunResults({
             <span className="heading-dot">.</span>
           </h1>
           <p className="page-description">
-            Demostración controlada · {formatDate(run.created_at)}
+            {run.environment_snapshot?.name || "Demostración controlada"} ·{" "}
+            {formatDate(run.created_at)}
           </p>
         </div>
         <div className="heading-actions">
@@ -166,6 +168,7 @@ function RunResults({
           <strong className="metric-value">{run.request_count}</strong>
         </div>
       </div>
+      {run.suite_id && <SuiteResults key={`suite-${run.id}`} runId={run.id} />}
       {!active && <ReportPanel key={run.id} runId={run.id} />}
       {!active && <AIIntelligencePanel key={`ai-${run.id}`} runId={run.id} />}
       <section className="panel run-issues">
@@ -304,9 +307,7 @@ function RunResults({
             </div>
             <div>
               <dt>Modo de red</dt>
-              <dd>
-                Solo demo integrada. Destinos remotos deshabilitados.
-              </dd>
+              <dd>Solo demo integrada. Destinos remotos deshabilitados.</dd>
             </div>
           </dl>
         </details>

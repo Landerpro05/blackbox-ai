@@ -70,6 +70,9 @@ export interface TestingCapabilities {
   maximums: RunLimits;
 }
 export interface TestRun {
+  target_url?: string;
+  suite_id?: string | null;
+  environment_snapshot?: Record<string, string>;
   id: string;
   project_id: string;
   status: AnalysisStatus;

@@ -7,6 +7,7 @@ import {
   Code2,
   FileBarChart2,
   FolderKanban,
+  FlaskConical,
   LayoutDashboard,
   LockKeyhole,
   Menu,
@@ -72,6 +73,10 @@ export function Layout() {
             <Activity size={18} />
             Análisis
           </NavLink>
+          <NavLink to="/lab">
+            <FlaskConical size={18} />
+            Testing Lab
+          </NavLink>
           <NavLink to="/reports">
             <FileBarChart2 size={18} />
             Informes
@@ -100,7 +105,7 @@ export function Layout() {
           </a>
           <div className="sidebar-version">
             <span className="tiny-dot" />
-            v0.1.0<span>Fase 5 · AI Intelligence</span>
+            v0.1.0<span>Fase 6 · Testing Lab</span>
           </div>
         </div>
       </aside>
@@ -118,17 +123,19 @@ export function Layout() {
             <span>Workspace</span>
             <ChevronRight size={14} />
             <strong>
-              {pathname.startsWith("/ai-analyses")
-                ? "AI Intelligence"
-                : pathname.startsWith("/reports")
-                  ? "Informes"
-                  : pathname.startsWith("/runs")
-                    ? "Análisis"
-                    : pathname.startsWith("/projects")
-                      ? "Proyectos"
-                      : pathname === "/settings"
-                        ? "Configuración"
-                        : "Dashboard"}
+              {pathname.startsWith("/lab")
+                ? "Testing Lab"
+                : pathname.startsWith("/ai-analyses")
+                  ? "AI Intelligence"
+                  : pathname.startsWith("/reports")
+                    ? "Informes"
+                    : pathname.startsWith("/runs")
+                      ? "Análisis"
+                      : pathname.startsWith("/projects")
+                        ? "Proyectos"
+                        : pathname === "/settings"
+                          ? "Configuración"
+                          : "Dashboard"}
             </strong>
           </div>
           <div className="topbar-right">

@@ -1,11 +1,15 @@
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 
-export function ResourceLoading() {
+export function ResourceLoading({
+  label = "Cargando proyectos…",
+}: {
+  label?: string;
+}) {
   return (
     <div className="panel resource-loading" role="status">
       <RefreshCw size={20} className="spinning" />
-      Cargando proyectos…
+      {label}
     </div>
   );
 }

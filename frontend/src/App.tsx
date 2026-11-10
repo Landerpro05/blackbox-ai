@@ -8,6 +8,7 @@ import { ProjectDetail } from "./pages/ProjectDetail";
 import { RunDetail } from "./pages/RunDetail";
 import { Analyses } from "./pages/Analyses";
 import { AIAnalysisDetail } from "./pages/AIAnalysisDetail";
+import { TestingLab } from "./pages/TestingLab";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="lab" element={<TestingLab />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/new" element={<NewProject />} />
           <Route path="projects/:id" element={<ProjectDetail />} />

@@ -1,0 +1,144 @@
+.lab-section {
+  padding: 24px;
+  margin: 20px 0;
+  min-width: 0;
+}
+.lab-section h2,
+.lab-section h3 {
+  margin-bottom: 14px;
+}
+.lab-section p {
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.lab-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.lab-form label,
+.lab-field {
+  display: grid;
+  gap: 8px;
+  color: var(--text-secondary, #a8b2c7);
+  font-size: 13px;
+}
+.lab-form input:not([type="checkbox"]),
+.lab-form select,
+.lab-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  color: #e4e9f2;
+  background: #111622;
+  border: 1px solid #30394b;
+  border-radius: 7px;
+  font: inherit;
+}
+.lab-form input:focus,
+.lab-form select:focus,
+.lab-field select:focus {
+  outline: 2px solid #8197ff;
+  outline-offset: 2px;
+}
+.lab-wide {
+  grid-column: 1 / -1;
+}
+.lab-tabs,
+.lab-actions,
+.lab-counts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.lab-actions {
+  margin: 10px 0;
+  font-size: 12px;
+}
+.lab-counts {
+  margin: 18px 0;
+}
+.lab-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+.lab-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #293142;
+  border-radius: 8px;
+}
+.lab-row > div:first-child {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+.lab-row p {
+  margin: 6px 0;
+  color: #a8b2c7;
+  font-size: 13px;
+}
+.lab-row small {
+  color: #a8b2c7;
+  overflow-wrap: anywhere;
+}
+.lab-item > .inline-alert,
+.lab-item > [role="alertdialog"] {
+  margin: 12px;
+  padding: 16px;
+  border: 1px solid #7c4f55;
+  border-radius: 8px;
+}
+.lab-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  margin: 14px 0;
+  line-height: 1.7;
+}
+.lab-checkbox input {
+  accent-color: #8b7cf8;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.lab-editor {
+  padding: 18px;
+  margin: 18px 0;
+  border: 1px solid #30394b;
+  border-radius: 8px;
+}
+.lab-section pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #111622;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.lab-section summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+@media (max-width: 700px) {
+  .lab-form {
+    grid-template-columns: 1fr;
+  }
+  .lab-section {
+    padding: 16px;
+  }
+  .lab-row {
+    align-items: flex-start;
+  }
+  .lab-row > .lab-actions {
+    width: 100%;
+  }
+}
