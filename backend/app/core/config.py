@@ -15,6 +15,18 @@ class Settings(BaseSettings):
 
     environment: Literal["development", "test", "production"] = "development"
     database_url: str = "sqlite:///./data/blackbox.db"
+    deployment_mode: Literal["local", "https"] = "local"
+    api_hosts: list[str] = Field(
+        default=["127.0.0.1", "localhost", "::1"], min_length=1, max_length=10
+    )
+    session_hours: int = Field(default=8, ge=1, le=24)
+    session_idle_minutes: int = Field(default=60, ge=5, le=120)
+    auth_attempts: int = Field(default=5, ge=2, le=20)
+    auth_window_seconds: int = Field(default=900, ge=30, le=3600)
+    api_requests_per_minute: int = Field(default=300, ge=30, le=2000)
+    max_body_bytes: int = Field(default=65536, ge=4096, le=262144)
+    body_timeout_seconds: int = Field(default=10, ge=1, le=30)
+    audit_retention_days: int = Field(default=90, ge=7, le=365)
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     demo_testing_enabled: bool = False
     local_lab_enabled: bool = False
@@ -54,6 +66,52 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def demo_is_local_only(self) -> "Settings":
+        import re
+        from urllib.parse import urlsplit
+
+        for host in self.api_hosts:
+            if not re.fullmatch(r"(?:[A-Za-z0-9.-]+|::1)", host) or "*" in host:
+                raise ValueError(
+                    "Configura hosts de API exactos, sin esquemas ni comodines."
+                )
+            if self.deployment_mode == "local" and host not in {
+                "127.0.0.1",
+                "localhost",
+                "::1",
+            }:
+                raise ValueError("El modo local solo admite hosts de loopback.")
+
+        for origin in self.cors_origins:
+            parsed = urlsplit(origin)
+            if (
+                parsed.scheme not in {"http", "https"}
+                or not parsed.hostname
+                or parsed.username
+                or parsed.password
+                or parsed.path not in {"", "/"}
+                or parsed.query
+                or parsed.fragment
+                or "*" in origin
+            ):
+                raise ValueError(
+                    "Configura orígenes CORS exactos sin credenciales ni rutas."
+                )
+            if self.deployment_mode == "local" and parsed.hostname not in {
+                "127.0.0.1",
+                "localhost",
+                "::1",
+            }:
+                raise ValueError(
+                    "El modo local solo permite orígenes CORS de loopback."
+                )
+            if self.deployment_mode == "https" and parsed.scheme != "https":
+                raise ValueError(
+                    "El modo no local requiere orígenes HTTPS y cookies Secure."
+                )
+        if self.environment == "production" and self.deployment_mode != "https":
+            raise ValueError(
+                "Production requiere HTTPS y cookies Secure; no habilita despliegue público."
+            )
         if (
             self.demo_testing_enabled or self.local_lab_enabled
         ) and self.environment == "production":

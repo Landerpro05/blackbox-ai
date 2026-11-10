@@ -12,12 +12,23 @@ from app.models.entities import (
 )
 from app.models.intelligence import AIAnalysis
 from app.models.lab import CaseResult, SuiteCase, TestEnvironment, TestSuite
+from app.models.security import (
+    AuditEvent,
+    AuthSession,
+    RegistrationInvite,
+    User,
+    Workspace,
+    WorkspaceMembership,
+)
 
 __all__ = [
     "AIAnalysis",
+    "AuditEvent",
+    "AuthSession",
     "CaseResult",
     "Issue",
     "Project",
+    "RegistrationInvite",
     "Run",
     "RunStatus",
     "Severity",
@@ -27,4 +38,7 @@ __all__ = [
     "TestPage",
     "TestRun",
     "TestSuite",
+    "User",
+    "Workspace",
+    "WorkspaceMembership",
 ]
