@@ -1,4 +1,5 @@
 import type { DashboardResponse, HealthResponse } from "../types/api";
+import { sessionHeaders, workspaceSignal } from "./session";
 
 export const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1"
@@ -22,19 +23,34 @@ export async function requestResponse(
 ): Promise<Response> {
   const signal = options.signal;
   const timeout = AbortSignal.timeout(timeoutMs);
-  const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  const combined = AbortSignal.any([
+    timeout,
+    ...(signal ? [signal] : []),
+    ...(!path.startsWith("/auth/") ? [workspaceSignal()] : []),
+  ]);
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       signal: combined,
       cache: "no-store",
+      credentials: "include",
       headers: {
         Accept: "application/json",
+        ...sessionHeaders(),
+        ...(!["GET", "HEAD"].includes(options.method || "GET")
+          ? { "Content-Type": "application/json" }
+          : {}),
         ...(options.body ? { "Content-Type": "application/json" } : {}),
         ...options.headers,
       },
     });
     if (!response.ok) {
+      if (
+        response.status === 401 &&
+        !["/auth/login", "/auth/register", "/auth/session"].includes(path) &&
+        typeof window !== "undefined"
+      )
+        window.dispatchEvent(new Event("blackbox:session-expired"));
       const body: unknown = await response.json().catch(() => null);
       const detail =
         body && typeof body === "object" && "detail" in body
@@ -56,7 +72,8 @@ export async function requestResponse(
         }
       }
       const safeDetail =
-        typeof detail === "string" && [403, 404, 409, 429].includes(response.status)
+        typeof detail === "string" &&
+        [401, 403, 404, 409, 422, 429].includes(response.status)
           ? detail
           : null;
       const message =
@@ -72,7 +89,12 @@ export async function requestResponse(
     }
     return response;
   } catch (error) {
-    if (combined.aborted && !signal?.aborted)
+    if (
+      combined.aborted &&
+      !signal?.aborted &&
+      !workspaceSignal().aborted &&
+      !(error instanceof DOMException && error.name === "AbortError")
+    )
       throw new Error(
         `La API no ha respondido en ${timeoutMs / 1000} segundos. Comprueba que FastAPI está en ejecución.`,
       );

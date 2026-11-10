@@ -29,6 +29,7 @@ const environment = {
 let backend;
 let vite;
 let backendOutput = "";
+const nativeFetch = globalThis.fetch;
 
 function startPython(arguments_) {
   return spawn(python, arguments_, {
@@ -41,7 +42,8 @@ function startPython(arguments_) {
 
 async function stopBackend() {
   // POSIX signal exits keep exitCode=null; cleanup may be called twice.
-  if (!backend || backend.exitCode !== null || backend.signalCode !== null) return;
+  if (!backend || backend.exitCode !== null || backend.signalCode !== null)
+    return;
   const exited = once(backend, "exit");
   if (process.platform === "win32") {
     // Terminate only the process tree created above (including the venv launcher).
@@ -66,6 +68,15 @@ try {
   });
   const [migrationCode] = await once(migration, "exit");
   assert.equal(migrationCode, 0, migrationOutput);
+  const provision = startPython([
+    "-c",
+    "import sys; sys.path.insert(0,'tests'); from auth_support import provision_configured_database; provision_configured_database()",
+  ]);
+  let provisionOutput = "";
+  provision.stderr.on("data", (value) => {
+    provisionOutput += value;
+  });
+  assert.equal((await once(provision, "exit"))[0], 0, provisionOutput);
 
   const reservation = createTcpServer();
   reservation.listen(0, "127.0.0.1");
@@ -116,6 +127,36 @@ try {
   const { ApiError, fetchOverview } = await vite.ssrLoadModule(
     "/src/services/api.ts",
   );
+  const authenticated = await nativeFetch(`${apiBase}/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: new URL(apiBase).origin,
+      "X-Blackbox-Request": "1",
+    },
+    body: JSON.stringify({
+      email: "owner@example.com",
+      password: "Fase7-pruebas-012345!",
+    }),
+  });
+  assert.equal(authenticated.status, 200);
+  const identity = await authenticated.json();
+  const cookie = authenticated.headers
+    .getSetCookie()
+    .map((value) => value.split(";", 1)[0])
+    .join("; ");
+  const { setSessionContext } = await vite.ssrLoadModule(
+    "/src/services/session.ts",
+  );
+  setSessionContext(identity.csrf_token, identity.active_workspace_id);
+  globalThis.fetch = (input, options = {}) => {
+    const headers = new Headers(options.headers);
+    if (String(input).startsWith(apiBase)) {
+      headers.set("Cookie", cookie);
+      headers.set("Origin", new URL(apiBase).origin);
+    }
+    return nativeFetch(input, { ...options, headers });
+  };
 
   assert.equal((await projectsApi.list(0)).total, 0);
   const created = await projectsApi.create({
@@ -167,6 +208,7 @@ try {
     "PASS: frontend client reports an unavailable backend. Temporary data only.",
   );
 } finally {
+  globalThis.fetch = nativeFetch;
   await vite?.close();
   await stopBackend();
   const target = resolve(directory);

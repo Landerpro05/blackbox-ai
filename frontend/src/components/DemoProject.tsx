@@ -1,3 +1,4 @@
+import { useAuth } from "./AuthProvider";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FlaskConical, Plus } from "lucide-react";
@@ -8,6 +9,7 @@ import { projectsApi } from "../services/projects";
 const load = (signal: AbortSignal) => runsApi.capabilities(signal);
 
 export function DemoProject() {
+  const { canWrite } = useAuth();
   const { state } = useResource(load);
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -55,7 +57,11 @@ export function DemoProject() {
         )}
       </div>
       {state.data.demo_enabled && (
-        <button className="button-secondary" onClick={create} disabled={busy}>
+        <button
+          className="button-secondary"
+          onClick={create}
+          disabled={busy || !canWrite}
+        >
           <Plus size={14} />
           {busy ? "Creando…" : "Crear proyecto de demostración"}
         </button>

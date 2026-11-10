@@ -17,6 +17,8 @@ from pathlib import Path
 import pytest
 
 from app.core.config import BACKEND_ROOT
+from auth_support import login_browser_context
+from auth_support import EMAIL, PASSWORD
 
 
 def free_port():
@@ -103,6 +105,20 @@ def local_application(tmp_path, monkeypatch, request):
         **flags,
     )
     assert migration.returncode == 0, migration.stderr
+    provisioned = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.path.insert(0,'tests'); from auth_support import provision_configured_database; provision_configured_database()",
+        ],
+        cwd=BACKEND_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        **flags,
+    )
+    assert provisioned.returncode == 0, provisioned.stderr
     api = subprocess.Popen(
         [
             sys.executable,
@@ -173,6 +189,7 @@ def test_react_start_results_filters_screenshots_mobile_and_cancellation(
                     route.abort()
 
             context.route("**/*", own_servers_only)
+            auth_headers = login_browser_context(context, api_url, ui_url)
             page = context.new_page()
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.goto(ui_url + "/projects")
@@ -291,11 +308,13 @@ def test_testing_lab_environment_suite_editor_execution_evidence_and_mobile(
                     else route.abort()
                 ),
             )
+            auth_headers = login_browser_context(context, api_url, ui_url)
             page = context.new_page()
             errors = []
             page.on("pageerror", lambda error: errors.append(str(error)))
             project = context.request.post(
                 api_url + "/api/projects",
+                headers=auth_headers,
                 data={
                     "name": "Laboratorio E2E",
                     "base_url": "http://blackbox-demo.invalid/",
@@ -394,6 +413,7 @@ def test_testing_lab_environment_suite_editor_execution_evidence_and_mobile(
             # the selected origin must invalidate consent on the next refresh.
             local_environment = context.request.post(
                 f"{api_url}/api/v1/projects/{project['id']}/environments",
+                headers=auth_headers,
                 data={
                     "name": "Cambio de origen",
                     "kind": "local",
@@ -414,6 +434,7 @@ def test_testing_lab_environment_suite_editor_execution_evidence_and_mobile(
             ).to_be_enabled()
             changed = context.request.patch(
                 f"{api_url}/api/v1/environments/{local_environment['id']}",
+                headers=auth_headers,
                 data={"base_url": "http://127.0.0.1:3001/"},
             )
             assert changed.status == 200
@@ -457,6 +478,7 @@ def test_phase4_downloads_analytics_comparison_and_offline_html(local_applicatio
                     route.abort()
 
             context.route("**/*", own_servers_only)
+            auth_headers = login_browser_context(context, api_url, ui_url)
             page = context.new_page()
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.goto(ui_url + "/projects")
@@ -625,6 +647,7 @@ def test_phase5_rules_persistence_copy_and_external_confirmation(local_applicati
                     route.abort()
 
             context.route("**/*", own_servers_only)
+            auth_headers = login_browser_context(context, api_url, ui_url)
             page = context.new_page()
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.goto(ui_url + "/projects")

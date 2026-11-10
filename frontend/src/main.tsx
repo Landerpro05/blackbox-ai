@@ -7,6 +7,7 @@ import "./runs.css";
 import "./reporting.css";
 import "./intelligence.css";
 import "./lab.css";
+import "./auth.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

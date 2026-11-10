@@ -5,6 +5,7 @@ import { FlaskConical, LoaderCircle, Play } from "lucide-react";
 import { useResource } from "../hooks/useResource";
 import { runsApi } from "../services/runs";
 import type { Project, RunLimits } from "../types/api";
+import { useAuth } from "./AuthProvider";
 
 const load = (signal: AbortSignal) => runsApi.capabilities(signal);
 const labels: Record<keyof RunLimits, string> = {
@@ -16,6 +17,7 @@ const labels: Record<keyof RunLimits, string> = {
 };
 
 export function RunStartPanel({ project }: { project: Project }) {
+  const { canWrite } = useAuth();
   const { state, reload } = useResource(load);
   const navigate = useNavigate();
   const [limits, setLimits] = useState<RunLimits | null>(null);
@@ -41,6 +43,7 @@ export function RunStartPanel({ project }: { project: Project }) {
       </div>
     );
   const eligible =
+    canWrite &&
     state.data.demo_enabled &&
     new URL(project.base_url).origin === new URL(state.data.demo_url).origin;
   const submit = async (event: FormEvent<HTMLFormElement>) => {

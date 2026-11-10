@@ -1,3 +1,4 @@
+import { useAuth } from "../components/AuthProvider";
 import { useCallback, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FlaskConical } from "lucide-react";
@@ -982,6 +983,7 @@ function Suites({
 }
 
 export function TestingLab() {
+  const { canWrite } = useAuth();
   const [params, setParams] = useSearchParams();
   const project = params.get("project") || "";
   const [offset, setOffset] = useState(0);
@@ -1175,7 +1177,7 @@ export function TestingLab() {
                 project={project}
                 revision={revision}
                 action={action}
-                busy={busy}
+                busy={busy || !canWrite}
               />
             ) : (
               <Suites
@@ -1183,7 +1185,7 @@ export function TestingLab() {
                 project={project}
                 revision={revision}
                 action={action}
-                busy={busy}
+                busy={busy || !canWrite}
               />
             )
           ) : (

@@ -1,3 +1,4 @@
+import { useAuth } from "../components/AuthProvider";
 import { useCallback, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -20,6 +21,7 @@ import { RunHistory } from "../components/RunHistory";
 import { ProjectAnalytics } from "../components/ProjectAnalytics";
 
 export function ProjectDetail() {
+  const { role, canWrite } = useAuth();
   const { id = "" } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -57,17 +59,21 @@ export function ProjectDetail() {
               </p>
             </div>
             <div className="heading-actions">
-              <Link className="button-secondary" to={`/projects/${id}/edit`}>
-                <Pencil size={15} />
-                Editar
-              </Link>
-              <button
-                className="button-danger"
-                onClick={() => setDeleting(true)}
-              >
-                <Trash2 size={15} />
-                Eliminar
-              </button>
+              {canWrite && (
+                <Link className="button-secondary" to={`/projects/${id}/edit`}>
+                  <Pencil size={15} />
+                  Editar
+                </Link>
+              )}
+              {["owner", "admin"].includes(role) && (
+                <button
+                  className="button-danger"
+                  onClick={() => setDeleting(true)}
+                >
+                  <Trash2 size={15} />
+                  Eliminar
+                </button>
+              )}
             </div>
           </div>
           {typeof location.state?.notice === "string" && (

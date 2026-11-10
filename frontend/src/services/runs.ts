@@ -1,4 +1,5 @@
 import { API_BASE_URL, request } from "./api";
+import { workspaceQuery } from "./session";
 import type {
   RunDetailData,
   RunLimits,
@@ -18,7 +19,7 @@ export const runLabels = {
   failed: "Fallido",
   cancelled: "Cancelado",
 };
-export const evidenceUrl = (path: string) => `${API_BASE_URL}${path}`;
+export const evidenceUrl = (path: string) => `${API_BASE_URL}${path}${workspaceQuery() ? (path.includes("?") ? "&" : "?") + workspaceQuery() : ""}`;
 
 export const runsApi = {
   capabilities: (signal?: AbortSignal) =>

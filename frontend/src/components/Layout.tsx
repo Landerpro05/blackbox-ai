@@ -15,11 +15,16 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useState, type ReactNode } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../services/api";
+import { useAuth } from "./AuthProvider";
 
-export function Layout() {
+export function Layout({ children }: { children?: ReactNode }) {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const [accessError, setAccessError] = useState("");
+  const [switching, setSwitching] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
   return (
@@ -50,8 +55,40 @@ export function Layout() {
         <div className="workspace-tag">
           <span className="workspace-avatar">B</span>
           <div>
-            <strong>Workspace local</strong>
-            <span>Entorno de desarrollo</span>
+            <label>
+              Workspace
+              <select
+                aria-label="Workspace activo"
+                disabled={switching}
+                value={auth.workspaceId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSwitching(true);
+                  setAccessError("");
+                  void auth
+                    .select(id)
+                    .then(() => navigate("/", { replace: true }))
+                    .catch((error) => {
+                      setAccessError(
+                        error instanceof Error
+                          ? error.message
+                          : "No se pudo cambiar el workspace.",
+                      );
+                      setSwitching(false);
+                    });
+                }}
+              >
+                <option value="" disabled>
+                  Selecciona workspace
+                </option>
+                {auth.session?.workspaces.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span>{auth.role || "Sin membresía"}</span>
           </div>
           <LockKeyhole size={13} />
         </div>
@@ -86,6 +123,26 @@ export function Layout() {
             <Settings2 size={18} />
             Configuración
           </NavLink>
+          <NavLink to="/account">
+            <LockKeyhole size={18} />
+            Cuenta y miembros
+          </NavLink>
+          <button
+            className="auth-logout"
+            onClick={() =>
+              void auth
+                .logout()
+                .catch((error) =>
+                  setAccessError(
+                    error instanceof Error
+                      ? error.message
+                      : "No se pudo cerrar sesión.",
+                  ),
+                )
+            }
+          >
+            Cerrar sesión
+          </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="local-note">
@@ -105,7 +162,7 @@ export function Layout() {
           </a>
           <div className="sidebar-version">
             <span className="tiny-dot" />
-            v0.1.0<span>Fase 6 · Testing Lab</span>
+            v0.1.0<span>Fase 7 · Security & Auth</span>
           </div>
         </div>
       </aside>
@@ -123,19 +180,21 @@ export function Layout() {
             <span>Workspace</span>
             <ChevronRight size={14} />
             <strong>
-              {pathname.startsWith("/lab")
-                ? "Testing Lab"
-                : pathname.startsWith("/ai-analyses")
-                  ? "AI Intelligence"
-                  : pathname.startsWith("/reports")
-                    ? "Informes"
-                    : pathname.startsWith("/runs")
-                      ? "Análisis"
-                      : pathname.startsWith("/projects")
-                        ? "Proyectos"
-                        : pathname === "/settings"
-                          ? "Configuración"
-                          : "Dashboard"}
+              {pathname.startsWith("/account")
+                ? "Cuenta y miembros"
+                : pathname.startsWith("/lab")
+                  ? "Testing Lab"
+                  : pathname.startsWith("/ai-analyses")
+                    ? "AI Intelligence"
+                    : pathname.startsWith("/reports")
+                      ? "Informes"
+                      : pathname.startsWith("/runs")
+                        ? "Análisis"
+                        : pathname.startsWith("/projects")
+                          ? "Proyectos"
+                          : pathname === "/settings"
+                            ? "Configuración"
+                            : "Dashboard"}
             </strong>
           </div>
           <div className="topbar-right">
@@ -152,14 +211,25 @@ export function Layout() {
             </NavLink>
             <span
               className="profile-avatar"
-              title="Workspace local, sin autenticación"
+              title={auth.session?.user.email || "Cuenta autenticada"}
             >
               BB
             </span>
           </div>
         </header>
         <main id="main-content">
-          <Outlet />
+          {accessError && (
+            <div className="inline-alert error-alert" role="alert">
+              {accessError}
+            </div>
+          )}
+          {auth.role === "viewer" && (
+            <div className="inline-alert" role="status">
+              Solo lectura: puedes consultar resultados, informes y evidencias.
+              Tu rol no permite modificar datos ni iniciar análisis.
+            </div>
+          )}
+          {children || <Outlet />}
         </main>
         <footer className="page-footer">
           <span>

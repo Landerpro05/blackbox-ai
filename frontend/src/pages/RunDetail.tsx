@@ -1,3 +1,4 @@
+import { useAuth } from "../components/AuthProvider";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -32,6 +33,7 @@ function RunResults({
   data: RunDetailData;
   reload: () => void;
 }) {
+  const { canWrite } = useAuth();
   const [filter, setFilter] = useState("all");
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
@@ -94,7 +96,7 @@ function RunResults({
             <RefreshCw size={14} />
             Actualizar
           </button>
-          {active && (
+          {active && canWrite && (
             <button
               className="button-danger"
               onClick={cancel}

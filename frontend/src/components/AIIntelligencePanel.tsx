@@ -1,3 +1,4 @@
+import { useAuth } from "./AuthProvider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { BrainCircuit, LoaderCircle } from "lucide-react";
@@ -32,6 +33,7 @@ function AIConfirmation({
   onClose: () => void;
   onCreated: (analysis: AIAnalysis) => void;
 }) {
+  const { role } = useAuth();
   const ref = useRef<HTMLDialogElement>(null);
   const [mode, setMode] = useState<"rules" | "llm">("rules");
   const [consent, setConsent] = useState(false);
@@ -94,7 +96,12 @@ function AIConfirmation({
           }}
         >
           <option value="rules">Análisis basado en reglas · Local</option>
-          <option value="llm" disabled={!capabilities.llm_enabled}>
+          <option
+            value="llm"
+            disabled={
+              !capabilities.llm_enabled || !["owner", "admin"].includes(role)
+            }
+          >
             Modelo LLM · Proveedor externo
           </option>
         </select>
@@ -193,6 +200,7 @@ function AIConfirmation({
 }
 
 export function AIIntelligencePanel({ runId }: { runId: string }) {
+  const { canWrite } = useAuth();
   const [open, setOpen] = useState(false);
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState("");
@@ -244,6 +252,7 @@ export function AIIntelligencePanel({ runId }: { runId: string }) {
         <button
           className="button-primary"
           disabled={
+            !canWrite ||
             capabilities.state.status !== "ready" ||
             Boolean(current && activeAI(current))
           }
@@ -302,7 +311,7 @@ export function AIIntelligencePanel({ runId }: { runId: string }) {
                 {activeAI(current) && (
                   <button
                     className="button-secondary"
-                    disabled={cancelling}
+                    disabled={cancelling || !canWrite}
                     onClick={() => void cancel(current.id)}
                   >
                     Cancelar interpretación

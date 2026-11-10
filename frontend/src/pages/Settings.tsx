@@ -52,7 +52,7 @@ export function Settings() {
               <ShieldCheck size={18} />
               Alcance actual
             </h2>
-            <p>Fase 6 · Testing Lab y CI</p>
+            <p>Fase 7 · Autenticación y seguridad</p>
           </div>
         </div>
         <div className="settings-body">
@@ -77,8 +77,10 @@ export function Settings() {
             suites desde la CLI y verificar el proyecto con GitHub Actions.
           </p>
           <p>
-            Este entorno local aún no dispone de autenticación. Usa los
-            servidores en la interfaz de loopback y evita exponerlos a Internet.
+            El acceso requiere una sesión y membresía del workspace. Los
+            permisos se verifican en el servidor, con cookies HttpOnly, CSRF y
+            sesiones revocables. Usa los servidores en loopback; esta entrega no
+            realiza un despliegue público.
           </p>
         </div>
       </section>
