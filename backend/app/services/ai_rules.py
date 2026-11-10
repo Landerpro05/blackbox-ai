@@ -6,6 +6,8 @@ from urllib.parse import urlsplit
 from app.schemas.intelligence import EngineResult, Finding, StoredResult, TestPlan
 
 RULES = {
+    "suite_assertion": ("La comprobación declarada no coincide con el resultado observado.", "Revisa la expectativa del caso y la evidencia de su ejecución.", "Corrige el comportamiento o ajusta una expectativa únicamente si estaba equivocada.", None),
+    "suite_error": ("La comprobación no pudo completarse dentro de los límites o de la política.", "Revisa disponibilidad, timeouts y el origen autorizado antes de repetir.", "Soluciona el bloqueo de ejecución antes de interpretar la ausencia de un fallo.", None),
     "http": (
         "La respuesta HTTP observada puede indicar una ruta inexistente o un fallo del servidor.",
         "Comprueba el código HTTP, la ruta y los logs del servidor en tu entorno autorizado.",

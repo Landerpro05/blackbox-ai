@@ -1,19 +1,21 @@
 import asyncio
-import time
 import logging
+import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from urllib.parse import urldefrag
+from urllib.parse import urldefrag, urlsplit
 from uuid import uuid4
+
+import httpx2
 
 from app.schemas.runs import RunLimits
 from app.testing.demo import response_for
 from app.testing.evidence import EvidenceStore
 from app.testing.policy import (
+    MAX_ISSUES,
     DemoPolicy,
     DestinationDenied,
-    MAX_ISSUES,
     redact_text,
     redact_url,
 )
@@ -39,6 +41,7 @@ class ScannedPage:
     depth: int
     screenshot_path: str | None
     findings: list[Finding] = field(default_factory=list)
+    case_result: dict | None = None
 
 
 class DemoEngine:
@@ -56,6 +59,10 @@ class DemoEngine:
         self.blocked_requests = 0
         self._findings: list[Finding] = []
         self._total_findings = 0
+        self.policy = None
+        self.responder = None
+        self.cases = None
+        self.transport_failed = False
 
     def finding(
         self, kind: str, severity: str, title: str, description: str, url: str
@@ -83,13 +90,26 @@ class DemoEngine:
         on_page: Callable[[ScannedPage, int], Awaitable[None]],
     ) -> None:
         from playwright.async_api import (
-            async_playwright,
             Error,
+            async_playwright,
+        )
+        from playwright.async_api import (
             TimeoutError as NavigationTimeout,
         )
 
-        policy = DemoPolicy()
+        policy = self.policy or DemoPolicy()
         target = policy.authorize(target)
+        self.navigation_timeout_ms = limits.navigation_timeout_seconds * 1000
+        self.request_budget = limits.max_requests
+
+        async def get_response(url):
+            if self.responder:
+                return await self.responder(url)
+            response = response_for(urlsplit(url).path)
+            if response.delay_seconds:
+                await asyncio.sleep(response.delay_seconds)
+            return response
+
         start_task = asyncio.create_task(async_playwright().start())
         playwright = None
         browser = None
@@ -122,6 +142,7 @@ class DemoEngine:
                 permissions=[],
                 viewport={"width": 1280, "height": 720},
                 java_script_enabled=True,
+                offline=True,
             )
 
             async def handle_request(route):
@@ -156,9 +177,19 @@ class DemoEngine:
                     )
                     await route.abort("blockedbyclient")
                     return
-                response = response_for(
-                    allowed.removeprefix("http://blackbox-demo.invalid")
-                )
+                try:
+                    response = await get_response(allowed)
+                except (httpx2.HTTPError, DestinationDenied):
+                    self.transport_failed = True
+                    self.finding(
+                        "local_integrity",
+                        "high",
+                        "Respuesta local no disponible o no verificada",
+                        "La aplicación no respondió dentro de la política o no coincide con el catálogo controlado.",
+                        allowed,
+                    )
+                    await route.abort("blockedbyclient")
+                    return
                 if response.location:
                     from urllib.parse import urljoin
 
@@ -179,8 +210,6 @@ class DemoEngine:
                             content_type="text/html; charset=utf-8",
                         )
                         return
-                if response.delay_seconds:
-                    await asyncio.sleep(response.delay_seconds)
                 headers = {
                     "Content-Type": response.content_type,
                     "Cache-Control": "no-store",
@@ -266,18 +295,30 @@ class DemoEngine:
 
             configure_page(page)
 
-            queue = deque([(target, 0)])
+            origin = f"{urlsplit(target).scheme}://{urlsplit(target).netloc}"
+            queue = deque(
+                [
+                    (policy.authorize(origin + case["definition"]["path"]), 0)
+                    for case in self.cases
+                ]
+                if self.cases
+                else [(target, 0)]
+            )
             visited: set[str] = set()
             scheduled = {target}
+            case_index = 0
+            case_errors = False
             while (
                 queue
                 and len(visited) < limits.max_pages
                 and not self.requests_exhausted
             ):
                 url, depth = queue.popleft()
-                if url in visited:
+                if not self.cases and url in visited:
                     continue
-                visited.add(url)
+                visited.add(f"{case_index}:{url}" if self.cases else url)
+                current_case = self.cases[case_index] if self.cases else None
+                case_index += 1
                 self._findings = []
                 started = time.monotonic()
                 status = None
@@ -331,6 +372,55 @@ class DemoEngine:
                 links: list[str] = []
                 screenshot = None
                 page_id = str(uuid4())
+                case_result = None
+                if current_case:
+                    from app.testing.declarative import evaluate
+
+                    try:
+                        verdict, detail = await evaluate(
+                            page,
+                            current_case["definition"],
+                            status,
+                            self,
+                            policy,
+                            get_response,
+                        )
+                    except (Error, DestinationDenied, httpx2.HTTPError):
+                        verdict, detail = (
+                            "error",
+                            "La comprobación no pudo completarse dentro de los límites o de la política.",
+                        )
+                    if self.requests_exhausted or any(
+                        item.kind == "redirect_blocked" for item in self._findings
+                    ):
+                        verdict, detail = (
+                            "error",
+                            "La política bloqueó una redirección o se agotó el presupuesto de solicitudes.",
+                        )
+                    if self.transport_failed:
+                        verdict, detail = (
+                            "error",
+                            "Se recibió contenido local no verificado o una conexión fallida.",
+                        )
+                    if verdict in {"fail", "error"}:
+                        self.finding(
+                            "suite_assertion" if verdict == "fail" else "suite_error",
+                            "high",
+                            "Comprobación declarativa fallida"
+                            if verdict == "fail"
+                            else "Error de comprobación declarativa",
+                            detail,
+                            url,
+                        )
+                    case_errors = case_errors or verdict == "error"
+                    if navigated:
+                        url = page.url
+                    case_result = {
+                        "id": current_case["result_id"],
+                        "status": verdict,
+                        "message": detail,
+                        "duration_ms": max(0, int((time.monotonic() - started) * 1000)),
+                    }
                 if navigated:
                     try:
                         unlabeled = await page.locator(
@@ -376,9 +466,10 @@ class DemoEngine:
                     depth,
                     screenshot,
                     self._findings.copy(),
+                    case_result,
                 )
                 await on_page(result, min(self.requests, limits.max_requests))
-                if depth < limits.max_depth:
+                if not self.cases and depth < limits.max_depth:
                     for link in links:
                         clean = urldefrag(link)[0]
                         if policy.navigable(clean):
@@ -388,6 +479,12 @@ class DemoEngine:
                                 queue.append((clean, depth + 1))
                         if len(scheduled) >= 200:
                             break
+            if self.transport_failed or (
+                self.cases and (case_errors or self.requests_exhausted)
+            ):
+                raise RuntimeError(
+                    "La ejecución no completó todas sus comprobaciones de forma válida."
+                )
         finally:
             # Shield driver startup so cancellation can still stop its subprocess.
             if playwright is None:

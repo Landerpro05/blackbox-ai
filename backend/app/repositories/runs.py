@@ -1,10 +1,10 @@
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import Issue, Project, Run, RunStatus, Severity, TestPage
-from app.models.entities import utc_now
 from app.core.errors import RunNotFound
-from app.schemas.runs import RunLimits, RunResponse, IssueResponse, PageResponse
+from app.models import CaseResult, Issue, Project, Run, RunStatus, Severity, TestPage
+from app.models.entities import utc_now
+from app.schemas.runs import IssueResponse, PageResponse, RunLimits, RunResponse
 from app.testing.engine import ScannedPage
 from app.testing.policy import redact_text, redact_url
 
@@ -41,6 +41,9 @@ def run_response(run: Run) -> RunResponse:
         error_message=run.error_message,
         cancellation_requested=run.cancellation_requested,
         limits=RunLimits.model_validate(run.limits or {}),
+        target_url=run.target_url,
+        suite_id=run.suite_id,
+        environment_snapshot=run.environment_snapshot,
     )
 
 
@@ -101,6 +104,14 @@ class RunWriter:
                     error_message="El servidor se reinició antes de finalizar el análisis.",
                 )
             )
+            session.execute(
+                update(CaseResult)
+                .where(CaseResult.status == "pending")
+                .values(
+                    status="error",
+                    message="El servidor se reinició antes de completar el caso.",
+                )
+            )
             return result.rowcount
 
     def mark_running(self, run_id: str) -> None:
@@ -144,6 +155,14 @@ class RunWriter:
             run.issues_found += len(result.findings)
             run.request_count = requests
             run.duration_ms = elapsed_ms
+            if result.case_result:
+                session.flush()
+                item = session.get(CaseResult, result.case_result["id"])
+                if item and item.run_id == run_id:
+                    item.status = result.case_result["status"]
+                    item.message = redact_text(result.case_result["message"])
+                    item.duration_ms = result.case_result["duration_ms"]
+                    item.page_id = result.id if result.screenshot_path else None
 
     def finish(
         self,
@@ -162,6 +181,14 @@ class RunWriter:
                 run.error_message = error
                 run.finished_at = utc_now()
                 run.active_slot = None
+                session.execute(
+                    update(CaseResult)
+                    .where(CaseResult.run_id == run_id, CaseResult.status == "pending")
+                    .values(
+                        status="skipped" if status == RunStatus.CANCELLED else "error",
+                        message="El caso no llegó a ejecutarse; la ejecución terminó o fue cancelada.",
+                    )
+                )
 
     def request_cancel(self, run_id: str, workspace: str) -> RunResponse:
         with self.factory.begin() as session:

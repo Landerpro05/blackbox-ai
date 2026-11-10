@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
-from app.core.errors import RunBusy, DemoDisabled
+from app.core.errors import DemoDisabled, RunBusy
 from app.models import Project, Run, RunStatus
 from app.repositories.runs import RunNotFound, RunWriter, run_response
 from app.schemas.runs import RunCreate, RunLimits, RunResponse
@@ -43,7 +43,7 @@ class RunManager:
 
     async def start(self) -> None:
         if (
-            self.settings.demo_testing_enabled
+            (self.settings.demo_testing_enabled or self.settings.local_lab_enabled)
             and os.name == "nt"
             and isinstance(asyncio.get_running_loop(), asyncio.SelectorEventLoop)
         ):
@@ -101,23 +101,31 @@ class RunManager:
                     "Ya existe un análisis activo. Espera a que termine o cancélalo."
                 ) from None
             session.refresh(run)
-            return run_response(run), target
+            return run_response(run), target, data.limits, None
 
     async def submit(
         self, project_id: str, workspace: str, data: RunCreate
     ) -> RunResponse:
+        return await self._submit(self._create, project_id, workspace, data)
+
+    async def submit_suite(self, suite_id, workspace, data):
+        from app.services.lab import prepare_suite_run
+
+        return await self._submit(
+            prepare_suite_run, self.factory, self.settings, suite_id, workspace, data
+        )
+
+    async def _submit(self, create, *args):
         async with self._mutex:
             if self._closing or (self._task is not None and not self._task.done()):
                 raise RunBusy(
                     "Ya existe un análisis activo. Espera a que termine o cancélalo."
                 )
-            creation = asyncio.create_task(
-                asyncio.to_thread(self._create, project_id, workspace, data)
-            )
+            creation = asyncio.create_task(asyncio.to_thread(create, *args))
             try:
-                response, target = await asyncio.shield(creation)
+                response, target, limits, specification = await asyncio.shield(creation)
             except asyncio.CancelledError:
-                response, target = await creation
+                response, target, limits, specification = await creation
                 await asyncio.to_thread(
                     self.writer.finish,
                     response.id,
@@ -130,7 +138,7 @@ class RunManager:
             self._cancel = asyncio.Event()
             self._active_id = response.id
             self._task = asyncio.create_task(
-                self._execute(response.id, target, data.limits, self._cancel),
+                self._execute(response.id, target, limits, self._cancel, specification),
                 name=f"blackbox-run-{response.id}",
             )
             return response
@@ -144,15 +152,32 @@ class RunManager:
         return response
 
     async def _execute(
-        self, run_id: str, target: str, limits: RunLimits, cancellation: asyncio.Event
+        self,
+        run_id: str,
+        target: str,
+        limits: RunLimits,
+        cancellation: asyncio.Event,
+        specification: dict | None = None,
     ) -> None:
         started = time.monotonic()
-        engine = self.engine_factory(self.evidence)
+        engine = None
         status = RunStatus.FAILED
         message = None
         work = None
         cancel_waiter = None
         try:
+            engine = self.engine_factory(self.evidence)
+            if specification:
+                from app.testing.local_policy import ControlledLocalPolicy, LocalBroker
+
+                if specification["kind"] == "local":
+                    engine.policy = ControlledLocalPolicy(
+                        specification["origin"], self.settings.local_lab_allowed_origins
+                    )
+                    engine.responder = LocalBroker(
+                        engine.policy, min(3, limits.navigation_timeout_seconds)
+                    )
+                engine.cases = specification["cases"]
             await asyncio.to_thread(self.writer.mark_running, run_id)
 
             async def on_page(page: ScannedPage, requests: int) -> None:
@@ -221,7 +246,7 @@ class RunManager:
                     run_id,
                     status,
                     int((time.monotonic() - started) * 1000),
-                    engine.requests,
+                    engine.requests if engine else 0,
                     message,
                 )
             finally:

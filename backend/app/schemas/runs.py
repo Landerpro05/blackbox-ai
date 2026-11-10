@@ -41,6 +41,9 @@ class RunResponse(BaseModel):
     error_message: str | None
     cancellation_requested: bool
     limits: RunLimits
+    target_url: str = ""
+    suite_id: str | None = None
+    environment_snapshot: dict = Field(default_factory=dict)
 
 
 class IssueResponse(BaseModel):

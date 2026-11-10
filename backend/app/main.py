@@ -10,6 +10,7 @@ from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 
 from app.api.intelligence import router as intelligence_router
+from app.api.lab import router as lab_router
 from app.api.projects import router as projects_router
 from app.api.reporting import router as reporting_router
 from app.api.routes import router
@@ -49,7 +50,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="BLACKBOX AI",
     version="0.1.0",
-    description="Phase 5: evidence-based rules and optional consented LLM intelligence. Remote browsing disabled.",
+    description="Phase 6: controlled local lab, declarative suites and evidence-based intelligence. Arbitrary browsing disabled.",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -77,6 +78,7 @@ app.include_router(projects_router, prefix="/api")
 app.include_router(runs_router)
 app.include_router(reporting_router)
 app.include_router(intelligence_router)
+app.include_router(lab_router)
 
 
 @app.exception_handler(RunNotFound)
@@ -114,7 +116,7 @@ async def destination_denied(
     return JSONResponse(
         status_code=403,
         content={
-            "detail": "Solo se permite analizar la demostración integrada. La navegación remota y otras aplicaciones locales están deshabilitadas."
+            "detail": "Destino bloqueado. Solo se permite la demo integrada o el catálogo local verificado en un origen autorizado."
         },
     )
 
