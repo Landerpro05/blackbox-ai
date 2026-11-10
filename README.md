@@ -1,8 +1,8 @@
 # BLACKBOX AI
 
-Plataforma de testing web autorizado. **Fase 5: AI Intelligence con reglas locales y LLM externo opcional.** Reutiliza FastAPI, React, SQLite, Playwright controlado, informes y comparación para interpretar incidencias, citar evidencias y proponer tests sin ejecutarlos.
+Plataforma de testing web autorizado. **Fase 6: Testing Lab, suites declarativas, CLI y GitHub Actions.** Conserva proyectos, análisis, informes, regresiones e inteligencia por reglas y LLM opcional.
 
-Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-ai). La rama `feature/phase-5-ai-intelligence` parte de `feature/phase-4-reporting`; no hay merge automático a `main` ni a fase 4. Los commits se redactan en castellano y agrupan cambios relacionados. Los entornos virtuales, dependencias instaladas, secretos, bases de datos y evidencias locales quedan fuera del control de versiones.
+Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-ai). La rama `feature/phase-6-local-testing-ci` parte exactamente de `236937beca23c1158ee1b331ef8601f160552d8e`, último commit de fase 5. No se hace merge automático. Los commits están en castellano. Dependencias instaladas, secretos, bases de datos y evidencias locales quedan fuera del control de versiones.
 
 ## Alcance de esta entrega
 
@@ -18,6 +18,8 @@ Repositorio: [Landerpro05/blackbox-ai](https://github.com/Landerpro05/blackbox-a
 - Historial, progreso, filtros por severidad, tiempos de navegación, evidencias y cancelación.
 - Informes HTML autónomos y PDF, exportaciones JSON/CSV, comparación de ejecuciones y gráficos históricos con datos de SQLite.
 - Diagnósticos por reglas sin clave, interpretación LLM con consentimiento, hipótesis vinculadas a evidencias, agrupación determinista y propuestas de tests Playwright copiables.
+- Entornos por proyecto, suites de siete tipos, resultados persistidos por caso, importación revisada de sugerencias y CLI con códigos de salida diferenciados.
+- Aplicación HTTP local controlada con catálogo verificado, consentimiento por ejecución y bloqueo de otros destinos; workflow de CI sin LLMs comerciales.
 
 **La navegación remota está deshabilitada.** Solo se analiza contenido integrado del proyecto, con activación del servidor y autorización expresa por ejecución. Guardar una URL no provoca navegación. Los informes y el análisis por reglas funcionan offline. El LLM opcional envía únicamente contexto textual redactado al proveedor configurado, tras autorización expresa; no recibe herramientas ni capturas. No hay autenticación multiusuario ni despliegue público.
 
@@ -33,7 +35,7 @@ ProyectoTocho/
 ```
 
 Consulta [la arquitectura](docs/architecture.md) para conocer límites, semántica de contadores y controles pendientes.
-Los registros de [fase 1](docs/verification-phase-1.md), [fase 2](docs/verification-phase-2.md), [fase 3](docs/verification-phase-3.md), [fase 4](docs/verification-phase-4.md) y [fase 5](docs/verification-phase-5.md) detallan los resultados comprobados, incluidas pruebas reales de navegador y evaluaciones controladas de inteligencia.
+Los registros de [fase 1](docs/verification-phase-1.md), [fase 2](docs/verification-phase-2.md), [fase 3](docs/verification-phase-3.md), [fase 4](docs/verification-phase-4.md), [fase 5](docs/verification-phase-5.md) y [fase 6](docs/verification-phase-6.md) detallan los resultados comprobados, incluidas pruebas reales de navegador y evaluaciones controladas de inteligencia.
 
 ## Windows · instalación desde cero
 
@@ -239,7 +241,7 @@ npm.cmd run build
 npm.cmd run test:integration
 ```
 
-`pytest` aplica las migraciones a archivos SQLite temporales. Conserva los 158 casos de fase 4 y añade evaluaciones de reglas, contrato LLM, privacidad, cuotas, persistencia y navegador. Los resultados de esta entrega están en [la verificación de fase 5](docs/verification-phase-5.md). No modifica `backend/data/blackbox.db` ni realiza llamadas comerciales reales. La prueba de React necesita Node y las dependencias del frontend instaladas. Para ejecutar solo los casos sin navegador usa `python -m pytest -m "not browser"` con el Python del entorno virtual.
+`pytest` aplica las migraciones a archivos SQLite temporales. Conserva los casos de las fases 1–5 y añade cobertura de políticas locales, entornos, suites, CLI y navegador. Los resultados de esta entrega están en [la verificación de fase 6](docs/verification-phase-6.md). No modifica `backend/data/blackbox.db` ni realiza llamadas comerciales reales. La prueba de React necesita Node y las dependencias del frontend instaladas. Para ejecutar solo los casos sin navegador usa `python -m pytest -m "not browser"` con el Python del entorno virtual.
 
 `npm run build` comprueba TypeScript y genera `frontend/dist/`. `npm run test:integration` conserva la comprobación del cliente TypeScript del CRUD contra FastAPI temporal. La prueba `backend/tests/test_browser_ui.py`, ejecutada con pytest, añade los clics reales de creación de demo, inicio, resultados, filtros, evidencias, menú móvil y cancelación. Los procesos y datos de prueba son temporales; las capturas de QA quedan en `.tools/qa/`, ignoradas por Git.
 
@@ -317,6 +319,106 @@ Los informes incluyen como máximo 200 incidencias, 20 páginas y 4 capturas de 
 Se escapa todo texto al generar HTML y marcado PDF. La CSP del HTML impide contenido activo y recursos externos; solo se incrustan PNG validados del mismo análisis. Las rutas UUID rechazan traversal y enlaces/junctions a otros archivos o ejecuciones. Se redactan credenciales conocidas, consultas URL, correos y rutas locales en datos históricos exportados; la redacción es heurística y las capturas no tienen OCR ni detección universal de secretos. El PDF utiliza la fuente libre Vera incluida en ReportLab; caracteres no soportados se representan con `?`. Consulta [ReportLab Platypus](https://docs.reportlab.com/reportlab/userguide/ch5_platypus/) y [CSV de Python](https://docs.python.org/3.12/library/csv.html).
 
 No hay cambios de esquema ni nuevos índices: se reutilizan los índices por workspace, proyecto, ejecución y fechas. Alembic sigue siendo la autoridad del esquema. ReportLab y sus dependencias de imagen se instalan con los locks habituales; `pypdf` solo se usa en pruebas. Poppler se utilizó como herramienta local de revisión, no es dependencia de la aplicación.
+
+## Testing Lab y CI — Fase 6
+
+**Restricción deliberada:** el laboratorio local solo admite la aplicación de desarrollo incluida en este repositorio. No está habilitado para aplicaciones arbitrarias, aunque sean propias. Playwright, la interceptación y el proxy no constituyen un aislamiento de sistema operativo suficiente frente a HTML/JavaScript malicioso. En esta fase se aplica la alternativa controlada permitida en los requisitos: el broker compara cada cuerpo, estado, Content-Type y Location con el catálogo versionado antes de entregarlo al navegador. El contenido alterado se rechaza, no se sanitiza ni se ejecuta.
+
+### Configurar el catálogo local
+
+Arranca la aplicación controlada en otra terminal, desde `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.lab_server --port 3000
+```
+
+Solo escucha en `127.0.0.1`. Contiene fallos intencionados, incluyendo `/missing`, `/server-error`, JavaScript en `/`, redirección prohibida y `/slow`. No representa un servicio de producción ni requiere GPU. Para habilitar ese origen, configura `backend/.env` y reinicia el backend con un único worker, sin `--reload` en Windows:
+
+```dotenv
+BLACKBOX_LOCAL_LAB_ENABLED=true
+BLACKBOX_LOCAL_LAB_ALLOWED_ORIGINS=["http://127.0.0.1:3000"]
+```
+
+Por defecto el modo permanece deshabilitado y la lista está vacía. Solo se admiten HTTP/HTTPS, IP literal `127.0.0.1` o `[::1]` y puerto explícito 1024–65535. El servidor incluido ofrece HTTP IPv4; usar HTTPS exige un servidor de catálogo con certificado TLS válido, sin omitir su comprobación. `localhost`, otras redes privadas, credenciales, consultas, fragmentos, rutas no catalogadas y saltos de puerto se rechazan. Una ejecución solo autoriza su origen, aunque la lista del servidor contenga otros. No se amplía el acceso por compartir un workspace.
+
+Antes de migrar tus datos conserva una copia consistente de SQLite. Ejecuta `python -m alembic upgrade head` desde `backend/`. La revisión nueva es `e62f1b809a73`; conserva las ejecuciones, incidencias y análisis de las fases anteriores.
+
+### Crear y ejecutar una suite
+
+1. Abre **Testing Lab** y selecciona un proyecto existente o crea uno.
+2. Registra un entorno **Desarrollo local controlado** con URL `http://127.0.0.1:3000/`. También puedes usar **Demo integrada** con `http://blackbox-demo.invalid/` cuando esté habilitada en el backend. Registrar/editar no accede a la URL.
+3. Pulsa **Comprobar**, revisa el origen y autoriza expresamente la solicitud. Un resultado `verified` confirma contenido compatible en ese momento; no concede autorización a futuras ejecuciones.
+4. En **Test Suites**, crea una suite y añade casos. Para una primera suite correcta usa `/about`: HTTP 200, título `Acerca de`, existencia de `h1`, texto `Acerca de` o ausencia de errores JavaScript. La ruta `/depth/1` permite comprobar enlaces internos o navegación a `/depth/2`. La portada contiene errores JavaScript deliberados.
+5. Elige el entorno y marca el consentimiento de esa ejecución. Se ejecutan los casos habilitados por orden numérico, con un máximo de 20 y sin superar las páginas del entorno. Las posiciones son únicas; para intercambiarlas usa primero una posición libre.
+6. Consulta progreso, `pass/fail/error/skipped`, evidencias y cancelación en la ejecución. Informes e inteligencia anteriores siguen disponibles al finalizar. El historial conserva una copia del entorno, del destino y de cada caso; editar o eliminar la suite/entorno no cambia estos resultados.
+
+Los siete tipos son estado HTTP, título exacto, existencia de selector simple, texto visible, ausencia de errores JavaScript/consola, enlaces internos (hasta 20 por caso) y navegación autorizada. No hay evaluadores de código del usuario, acciones de formulario ni scripts libres. Los errores de política, transporte o presupuesto son `error`; una expectativa incumplida es `fail`. Una ejecución con aserciones fallidas puede terminar `completed`: significa que el motor completó sus comprobaciones, no que todas fueran correctas. Cancelar marca como `skipped` los casos pendientes.
+
+Los límites por defecto siguen siendo 10 páginas/casos, profundidad 2, navegación 15 s, global 120 s y 100 solicitudes. Solo hay un navegador, una pestaña de análisis y una ejecución activa. Las suites no hacen crawling adicional; la profundidad limita el crawler de demo y los casos de navegación tienen un único salto explícito. Descargas, WebSockets, iframes, service workers y métodos distintos de GET permanecen bloqueados. Chromium trabaja offline; un broker separado realiza las peticiones acotadas al catálogo local. No se copian cookies ni cabeceras de la aplicación al navegador.
+
+Para importar una propuesta de IA, usa el ID del análisis y su índice (desde 0) en la suite del mismo proyecto, confirma la conversión y revisa el caso deshabilitado resultante. Solo se admiten las plantillas conocidas con evidencia compatible; el código generado se ignora. LLM sigue siendo opcional y requiere consentimiento independiente y cuotas. Un fallo del proveedor no afecta a las pruebas normales.
+
+### CLI
+
+Desde `backend/`, usando el Python del entorno virtual:
+
+```powershell
+python -m app.cli demo --authorize --json results.json
+python -m app.cli test --project PROJECT_ID --suite SUITE_ID --environment ENV_ID --origin http://127.0.0.1:3000 --authorize --timeout 180 --json results.json
+```
+
+La CLI se conecta por defecto a `http://127.0.0.1:8000/api/v1`, sin proxies ni redirecciones. `--api` solo admite una API en loopback. `demo` crea un proyecto, entorno y suite reales con cuatro casos en `/about`; las ejecuciones permanecen guardadas. No elimina datos automáticamente. `test` comprueba que la suite pertenece al proyecto indicado. El progreso se escribe en stderr y `--json` guarda el resultado estructurado, sin secretos del proveedor.
+
+Para CI o uso aislado, la API puede vivir en el propio proceso usando los mismos servicios y motor:
+
+```powershell
+$env:BLACKBOX_DEMO_TESTING_ENABLED='true'
+python -m app.cli demo --standalone --database ../.tools/cli/demo.db --authorize --json ../.tools/cli/results.json
+```
+
+`--database` requiere `--standalone`; se migra al inicio y debe ser una base independiente de cualquier API activa. El bloqueo de proceso rechaza una base ocupada. `--standalone` no evita las políticas del servidor ni habilita los modos de testing automáticamente. `--timeout` admite 5–300 segundos; al agotarse solicita cancelación y espera la limpieza. Ctrl+C también solicita cancelación.
+
+| Código | Significado |
+| --- | --- |
+| 0 | Motor completado y todos los casos correctos |
+| 1 | Motor completado con aserciones fallidas |
+| 2 | Configuración, política, conexión o ejecución fallida |
+| 3 | Cancelación o timeout de espera de la CLI |
+
+### GitHub Actions
+
+El workflow [ci.yml](.github/workflows/ci.yml) se ejecuta en push a ramas feature/main, Pull Requests y despacho manual cuando GitHub lo permita. Los push que solo modifican Markdown no repiten el análisis; los PR siguen activando la verificación. No hace push ni merge. Usa Ubuntu 24.04, Python 3.12.16 y Node 24.22.2, acciones fijadas por SHA, dependencias Python con hashes y `npm ci`. El token solo dispone de `contents: read`, sin credenciales Git persistidas. Limita la concurrencia a una ejecución por workflow/ref, cancela versiones anteriores de la misma rama y aplica timeout de 20 minutos. No ejecuta jobs en paralelo ni usa `pull_request_target`.
+
+Verifica dependencias, migraciones, todos los tests (incluidos navegador e integración local), el cliente TypeScript y el build. También ejecuta la demo CLI en otra base temporal. Los servidores y destinos de las pruebas pertenecen al propio runner; no se analizan sitios públicos ni se llaman LLMs comerciales. Las descargas de dependencias y Chromium sí requieren conexión durante la instalación. Se cachean descargas de pip/npm con claves ligadas a los lockfiles, sin cachear bases, evidencias ni secretos. Los artifacts contienen únicamente JUnit y el JSON de la demo sintética, conservados 7 días.
+
+La pantalla CI muestra instrucciones y **estado remoto sin consultar**; no inventa un estado verde. Consulta resultados reales en [Actions](https://github.com/Landerpro05/blackbox-ai/actions). El estado comprobado de esta entrega se registra en [verificación de fase 6](docs/verification-phase-6.md).
+
+### API del laboratorio
+
+Todos los endpoints usan `/api/v1`, UUIDs y el workspace asignado por el servidor. Este ámbito local no equivale a autenticación multiusuario.
+
+| Recurso | Operaciones |
+| --- | --- |
+| `/lab/capabilities` | GET capacidades y restricciones actuales |
+| `/projects/{id}/environments` | GET paginado, POST |
+| `/environments/{id}` | PATCH, DELETE |
+| `/environments/{id}/check` | POST con `authorize` y `consent_origin` exacto |
+| `/projects/{id}/suites` | GET paginado, POST |
+| `/suites/{id}` | GET detalle/casos, PATCH, DELETE |
+| `/suites/{id}/cases` | POST |
+| `/suite-cases/{id}` | PATCH, DELETE |
+| `/suites/{id}/import-ai` | POST conversión confirmada |
+| `/suites/{id}/runs` | POST con entorno y consentimiento, GET historial paginado |
+| `/runs/{id}/suite-results` | GET resultados persistidos y contadores |
+| `/runs/{id}/cancel` | POST cancelación compartida con el motor existente |
+
+Ejemplo declarativo, sin código ejecutable:
+
+```json
+{"name":"Título esperado","position":0,"enabled":true,"definition":{"type":"title","path":"/about","expected_title":"Acerca de"}}
+```
+
+Quedan pendientes el aislamiento de sistema operativo para aplicaciones propias arbitrarias, autenticación multiusuario, staging remoto y consulta automática de estados de GitHub. No se inicia la Fase 7.
 
 ## AI Intelligence - Fase 5
 

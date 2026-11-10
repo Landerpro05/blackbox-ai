@@ -1,4 +1,4 @@
-# Arquitectura — fase 5
+# Arquitectura — fase 6
 
 ## Estructura definitiva
 
@@ -84,7 +84,7 @@ CORS admite únicamente los orígenes locales configurados y los métodos GET/PO
 
 ### Alternativa controlada adoptada
 
-La navegación remota y otros servidores locales permanecen deshabilitados. Se usa el origen virtual fijo `http://blackbox-demo.invalid`, servido por un catálogo de HTML/JS integrado. Solo GET y ese origen se aceptan; cada solicitud se resuelve con `route.fulfill` o `route.abort`, nunca con `continue_`/`fetch` al destino. No hay resolución DNS de destino ni entradas de hosts aportadas por el cliente.
+La demo conserva su política sin red. El catálogo HTTP local verificado se describe en la sección Testing Lab; las aplicaciones arbitrarias siguen deshabilitadas. En demo se usa el origen virtual fijo `http://blackbox-demo.invalid`, servido por un catálogo de HTML/JS integrado. Solo GET y ese origen se aceptan; cada solicitud se resuelve con `route.fulfill` o `route.abort`, nunca con `continue_`/`fetch` al destino. No hay resolución DNS de destino ni entradas de hosts aportadas por el cliente.
 
 Antes de devolver una redirección se valida su Location. Una redirección prohibida produce una respuesta local bloqueada y una incidencia, sin contactar su destino. Se bloquean subrecursos externos, iframes, WebSockets, métodos de escritura y Service Workers. Las descargas se rechazan; el crawler excluye enlaces de acciones y archivos. La inspección de formularios solo observa sus etiquetas.
 
@@ -195,6 +195,40 @@ La migración `d51e09a3b842` añade `ai_analyses`, sin modificar las tablas prev
 Índices nuevos: slot activo único, `(run_id, created_at)` para historial/caché/cuota por ejecución y `(workspace_id, created_at)` para límites diarios/cooldown. Las lecturas unen AIAnalysis, Run y Project y exigen los tres ámbitos. El histórico está paginado (5 por defecto, máximo 20); no se devuelve una colección ilimitada.
 
 `AIIntelligencePanel` amplía RunDetail con modal, creación, polling y selección de resultados guardados. `AIAnalysisResult` se comparte con `/ai-analyses/:id` y separa hechos, hipótesis, recomendaciones, relaciones hipotéticas y código. Sus citas abren las evidencias usadas; las capturas se consultan mediante la ruta protegida existente y nunca se envían al modelo. El portapapeles es una acción expresa del usuario. Las claves no forman parte de ningún contrato TypeScript ni variable VITE_.
+
+## Testing Lab, suites y CLI
+
+La fase 6 parte exactamente de `236937beca23c1158ee1b331ef8601f160552d8e` en una rama propia. Extiende Run y DemoEngine; no introduce otro ejecutor ni servicios pesados. El laboratorio conserva un navegador, una pestaña y el slot global de ejecución existente. La aplicación HTTP controlada (`app.lab_server`) se arranca manualmente y solo escucha en loopback; no hay comandos derivados de datos de páginas.
+
+### Frontera de confianza y red
+
+Playwright no se considera una frontera de seguridad suficiente. Como no existe aislamiento de red del sistema operativo verificado, las aplicaciones arbitrarias siguen deshabilitadas. El único destino local admitido es una réplica del catálogo incluido en `testing/demo.py`, servido por el propio proyecto. Incluso con un origen autorizado, no se acepta HTML/JS nuevo ni cambios del desarrollador fuera de ese catálogo. Se documenta esta limitación en API, UI y README.
+
+`ControlledLocalPolicy` exige HTTP/HTTPS, loopback literal canónico, puerto explícito y coincidencia exacta con el origen seleccionado. No usa nombres DNS ni allowlists de redes privadas. Cada ruta pertenece a una lista finita de catálogo. No permite userinfo, consultas, fragmentos, IPs alternativas ni codificaciones de rutas. La autorización de otros orígenes del servidor no amplía la ejecución actual. El registro valida sintaxis sin I/O; comprobar disponibilidad y ejecutar requieren consentimiento expreso por separado.
+
+Chromium utiliza contexto offline, proxy sin salida, resolución deshabilitada e interceptación global. No se usan `route.continue_()` ni `route.fetch()` en el motor. En modo local, `LocalBroker` realiza GET con HTTPX2 fuera de Chromium, sin proxies del entorno ni redirects automáticos, una conexión, timeout de hasta 3 s y respuesta decodificada limitada a 1 MB. Compara cuerpo, estado, Content-Type y Location con el catálogo de la misma versión antes de entregar contenido. Solo pasa las cabeceras fijas propias y el Location verificado, que se vuelve a autorizar antes de responder. Se mantiene TLS válido; no se usa `verify=False`. Una discrepancia produce error de integridad genérico y aborta la solicitud. No hay ventana entre validar un hostname y resolverlo porque solo se conectan IPs literales.
+
+Los límites de sistema operativo frente a contenido malicioso no están garantizados por estas medidas. La confianza proviene del catálogo propio verificado; no se promete aislamiento para aplicaciones arbitrarias. Las pruebas alteran una respuesta local y comprueban que su script no aparece entre los errores ejecutados. Comprueban asimismo rechazo de IPs alternativas, localhost, hostnames, rutas privadas, redirects, subrecursos y otros puertos.
+
+### Persistencia, casos e histórico
+
+`e62f1b809a73` añade `test_environments`, `test_suites`, `suite_cases`, `case_results` y tres columnas de Run. Las nuevas referencias ambiente/suite de Run son IDs históricos sin FK para poder borrar configuraciones conservando el histórico. `environment_snapshot` captura nombre, tipo, URL, origen y nombre de suite al iniciar; Run conserva límites y destino originales. CaseResult copia nombre, posición y definición, enlaza el caso opcional mediante SET NULL y la evidencia de TestPage mediante SET NULL. Las tablas nuevas tienen FKs a proyectos/runs con CASCADE para el borrado de un proyecto. La revisión usa ADD COLUMN y DROP COLUMN nativos en Runs, evitando reconstruirla y disparar cascadas sobre incidencias o IA existentes; una prueba de downgrade/upgrade verifica su conservación.
+
+Las consultas de entorno/suite unen Project y exigen ambos workspaces. Los casos heredan el ámbito a través de Suite y Project. Los resultados usan el acceso protegido a Run y las evidencias existentes. El workspace procede del servidor y sigue siendo una convención local, no una autenticación pública. Los listados están paginados (20 por defecto, máximo 50); las suites tienen un máximo de 20 casos y posiciones únicas. El editor se actualiza tras cada operación y trata 404/409/422/503 sin mostrar excepciones internas.
+
+Pydantic discrimina siete tipos con campos extra prohibidos. Rutas relativas simples, booleanos/enteros estrictos y selectores CSS restringidos impiden introducir código, XPath, funciones o acciones. `testing/declarative.py` ejecuta únicamente operaciones Playwright fijas. La lectura de enlaces usa JavaScript constante del proyecto con datos pasados como valores, nunca código aportado por el usuario. Los enlaces se verifican por GET, hasta 20 por caso y dentro del presupuesto global. Navegación es un salto explícito a una ruta autorizada; las suites no añaden crawling. La profundidad conserva su significado en el crawler de demo.
+
+RunManager comparte creación transaccional/slot/cancelación y crea CaseResults antes de empezar. El motor captura cada página usando el mecanismo anterior y el writer guarda resultado y evidencia en una transacción corta. Una aserción fallida es `fail` y produce una incidencia `suite_assertion`; el motor puede acabar completed. Política, transporte, timeout o presupuesto son `error`/`suite_error` y la ejecución acaba failed. Una cancelación deja los pendientes skipped; reiniciar marca errores pendientes y libera el slot. La configuración inicial del motor también queda dentro del bloque de limpieza. Un fallo de interpretación de IA no cambia estos resultados.
+
+La conversión de sugerencias exige confirmación, análisis completed del mismo proyecto, índice existente, evidencia compatible y validación del caso resultante. Solo convierte las plantillas conocidas de HTTP/errores JavaScript; ignora el código y guarda el caso deshabilitado. Los diagnósticos por reglas y el adaptador LLM se reutilizan desde RunDetail, con las cuotas y consentimiento anteriores.
+
+### Interfaz, CLI y CI
+
+`TestingLab` integra gestión de entornos, suite/casos e historial. `SuiteResults` hace polling mediante el hook existente, muestra contadores/filtro/evidencias y se incrusta en RunDetail, que conserva cancelación, informes e inteligencia. Los formularios exigen consentimiento para comprobar disponibilidad y ejecutar. La autorización de la suite está vinculada al origen exacto, por lo que un cambio concurrente del entorno invalida la casilla al refrescar datos. El estado CI se etiqueta sin consultar; no hay un servicio GitHub ni badge inventado.
+
+`app.cli` es un cliente de API loopback con progreso y espera limitada. El modo standalone ejecuta el mismo lifespan FastAPI mediante ASGITransport, las mismas rutas y RunManager; usa el bloqueo de la base antes de migrar y rechaza una base ocupada. No usa un segundo motor. Los códigos 0/1/2/3 diferencian éxito, aserción, ejecución/configuración y cancelación/timeout. Solo el comando demo crea recursos; test usa IDs existentes y verifica el proyecto. Los JSON se escriben únicamente al archivo pedido por el usuario.
+
+GitHub Actions usa acciones fijadas por SHA, versiones de runtime exactas, lockfiles, caché de descargas y permisos contents:read. Un único job ejecuta secuencialmente los checks, con cancelación por ref y timeout. No repite ejecuciones por push solo de Markdown; pull_request mantiene la verificación general. La instalación descarga dependencias; los análisis de testing solo usan aplicaciones controladas del runner. El proveedor LLM se fuerza a disabled sin clave. La demo solo se activa en fixtures propios y en el paso CLI, respetando las comprobaciones de configuración deshabilitada. Los artifacts excluyen SQLite y capturas, guardando únicamente resultados sintéticos. El workflow no publica ni modifica código. La limpieza del script de integración es idempotente tanto para exitCode como signalCode, para funcionar en Windows y Linux. La verificación real local/remota se registra aparte en `docs/verification-phase-6.md`.
 
 ## Referencias técnicas
 
