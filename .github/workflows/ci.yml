@@ -3,6 +3,7 @@ name: Verificación BLACKBOX AI
 on:
   push:
     branches: [main, "feature/**"]
+    paths-ignore: ["**/*.md"]
   pull_request:
   workflow_dispatch:
 

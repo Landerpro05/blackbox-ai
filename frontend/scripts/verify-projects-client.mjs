@@ -40,7 +40,8 @@ function startPython(arguments_) {
 }
 
 async function stopBackend() {
-  if (!backend || backend.exitCode !== null) return;
+  // POSIX signal exits keep exitCode=null; cleanup may be called twice.
+  if (!backend || backend.exitCode !== null || backend.signalCode !== null) return;
   const exited = once(backend, "exit");
   if (process.platform === "win32") {
     // Terminate only the process tree created above (including the venv launcher).
